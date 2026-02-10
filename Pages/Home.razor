@@ -1,0 +1,82 @@
+@page "/"
+@layout MainLayout
+
+<PageTitle>UtilityMenu - Professional Excel Add-in for Power Users</PageTitle>
+
+@* Hero Section *@
+<section class="hero">
+    <div class="hero-container">
+        <div class="hero-content">
+            <h1 class="hero-title">
+                Supercharge Your Excel Workflow
+            </h1>
+            <p class="hero-subtitle">
+                UtilityMenu is a professional C# Excel XLL add-in designed for power users
+                who demand efficiency, reliability, and advanced functionality.
+            </p>
+            <div class="hero-buttons">
+                <a href="#download" class="btn btn-primary">Download Now</a>
+                <a href="#features" class="btn btn-secondary">Learn More</a>
+            </div>
+        </div>
+        <div class="hero-image">
+            <div class="hero-placeholder">
+                <span class="placeholder-icon">📊</span>
+                <p>Excel Add-in Interface</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+@* Features Section *@
+<section id="features" class="features">
+    <div class="features-container">
+        <div class="section-header">
+            <h2>Powerful Features for Excel Power Users</h2>
+            <p>Everything you need to boost productivity and streamline your Excel workflows</p>
+        </div>
+        <div class="features-grid">
+            <FeatureCard
+                Icon="⚡"
+                Title="Lightning Fast Performance"
+                Description="Native C# implementation ensures blazing-fast calculations and minimal overhead, even with large datasets." />
+
+            <FeatureCard
+                Icon="🔧"
+                Title="Advanced Utilities"
+                Description="Access a comprehensive suite of professional-grade utilities designed specifically for power users and data analysts." />
+
+            <FeatureCard
+                Icon="🔒"
+                Title="Secure & Reliable"
+                Description="Built with enterprise-grade security standards. Your data stays local and protected at all times." />
+
+            <FeatureCard
+                Icon="🎯"
+                Title="Intuitive Interface"
+                Description="Seamlessly integrated into Excel's ribbon with an intuitive design that feels natural and familiar." />
+
+            <FeatureCard
+                Icon="🔄"
+                Title="Regular Updates"
+                Description="Continuously improved with new features, bug fixes, and compatibility updates for the latest Excel versions." />
+        </div>
+    </div>
+</section>
+
+@* Call to Action Section *@
+<section id="download" class="cta">
+    <div class="cta-container">
+        <h2 class="cta-title">Ready to Transform Your Excel Experience?</h2>
+        <p class="cta-description">
+            Join thousands of professionals who trust UtilityMenu to enhance their Excel productivity.
+        </p>
+        <div class="cta-buttons">
+            <a href="#" class="btn btn-primary btn-large">Download UtilityMenu</a>
+        </div>
+        <p class="cta-note">Free trial available • Windows 10/11 • Excel 2016 or later</p>
+    </div>
+</section>
+
+@* Footer *@
+<Footer />

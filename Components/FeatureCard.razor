@@ -1,0 +1,20 @@
+@* Feature card component for displaying individual features *@
+
+<div class="feature-card">
+    <div class="feature-icon">
+        @Icon
+    </div>
+    <h3 class="feature-title">@Title</h3>
+    <p class="feature-description">@Description</p>
+</div>
+
+@code {
+    [Parameter]
+    public string Icon { get; set; } = "📋";
+
+    [Parameter]
+    public string Title { get; set; } = "";
+
+    [Parameter]
+    public string Description { get; set; } = "";
+}

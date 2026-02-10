@@ -1,0 +1,6 @@
+Place your image assets here.
+
+Example images to add:
+- logo.png (for navbar logo)
+- hero-image.png (for hero section)
+- feature-icons/ (directory for feature icon images)
