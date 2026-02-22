@@ -1,0 +1,103 @@
+@page "/blog"
+@inject IBlogService BlogService
+
+<PageTitle>Blog — UtilityMenu</PageTitle>
+<HeadContent>
+    <meta name="description" content="News, tutorials and updates from the UtilityMenu team." />
+</HeadContent>
+
+<div class="container py-5">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="fw-bold">Blog</h1>
+            <p class="text-muted">News, tutorials, and updates from UtilityMenu.</p>
+        </div>
+    </div>
+
+    <!-- Category Filter -->
+    @if (_categories.Any())
+    {
+        <div class="d-flex flex-wrap gap-2 mb-4">
+            <button class="btn @(string.IsNullOrEmpty(_categorySlug) ? "btn-primary" : "btn-outline-secondary") btn-sm"
+                    @onclick="() => FilterCategory(null)">All</button>
+            @foreach (var cat in _categories)
+            {
+                <button class="btn @(_categorySlug == cat.Slug ? "btn-primary" : "btn-outline-secondary") btn-sm"
+                        @onclick="() => FilterCategory(cat.Slug)">
+                    @cat.Name
+                </button>
+            }
+        </div>
+    }
+
+    @if (_loading)
+    {
+        <LoadingSpinner />
+    }
+    else if (_result.Items.Any())
+    {
+        <div class="row g-4 mb-4">
+            @foreach (var post in _result.Items)
+            {
+                <div class="col-md-4">
+                    <div class="card h-100 border-0 shadow-sm">
+                        @if (!string.IsNullOrWhiteSpace(post.CoverImageUrl))
+                        {
+                            <img src="@post.CoverImageUrl" class="card-img-top" alt="@post.Title" style="height:180px;object-fit:cover;" />
+                        }
+                        <div class="card-body">
+                            <span class="badge bg-primary-subtle text-primary mb-2">@post.Category.Name</span>
+                            <h5 class="fw-semibold"><a href="/blog/@post.Slug" class="text-decoration-none text-dark">@post.Title</a></h5>
+                            <p class="text-muted small">@post.Summary</p>
+                        </div>
+                        <div class="card-footer bg-transparent border-0 d-flex justify-content-between">
+                            <small class="text-muted">@post.PublishedAt?.ToString("MMM d, yyyy")</small>
+                            <a href="/blog/@post.Slug" class="btn btn-sm btn-link p-0 text-primary">Read more <i class="bi bi-arrow-right"></i></a>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <Pagination CurrentPage="_currentPage" TotalPages="_result.TotalPages" OnPageChanged="ChangePage" />
+    }
+    else
+    {
+        <p class="text-muted">No posts found.</p>
+    }
+</div>
+
+@code {
+    private Core.Models.PagedResult<Data.Models.BlogPost> _result = new();
+    private List<Data.Models.BlogCategory> _categories = new();
+    private string? _categorySlug;
+    private int _currentPage = 1;
+    private const int PageSize = 12;
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _categories = await BlogService.GetCategoriesAsync();
+        await LoadPostsAsync();
+    }
+
+    private async Task FilterCategory(string? slug)
+    {
+        _categorySlug = slug;
+        _currentPage = 1;
+        await LoadPostsAsync();
+    }
+
+    private async Task ChangePage(int page)
+    {
+        _currentPage = page;
+        await LoadPostsAsync();
+    }
+
+    private async Task LoadPostsAsync()
+    {
+        _loading = true;
+        _result = await BlogService.GetPublishedPostsAsync(_categorySlug, _currentPage, PageSize);
+        _loading = false;
+    }
+}

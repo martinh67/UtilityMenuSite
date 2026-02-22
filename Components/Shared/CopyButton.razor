@@ -1,0 +1,30 @@
+@inject IJSRuntime JS
+
+<button class="btn @ButtonClass" @onclick="CopyToClipboard" title="Copy to clipboard">
+    @if (_copied)
+    {
+        <i class="bi bi-check-lg me-1"></i>@CopiedLabel
+    }
+    else
+    {
+        <i class="bi bi-clipboard me-1"></i>@Label
+    }
+</button>
+
+@code {
+    [Parameter] public string TextToCopy { get; set; } = string.Empty;
+    [Parameter] public string Label { get; set; } = "Copy";
+    [Parameter] public string CopiedLabel { get; set; } = "Copied!";
+    [Parameter] public string ButtonClass { get; set; } = "btn-outline-secondary btn-sm";
+
+    private bool _copied;
+
+    private async Task CopyToClipboard()
+    {
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", TextToCopy);
+        _copied = true;
+        await Task.Delay(2000);
+        _copied = false;
+        StateHasChanged();
+    }
+}

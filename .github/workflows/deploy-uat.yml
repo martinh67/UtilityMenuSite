@@ -1,0 +1,40 @@
+name: Deploy — UAT
+
+on:
+  push:
+    branches: [ develop ]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-uat
+  cancel-in-progress: false
+
+jobs:
+  build:
+    uses: ./.github/workflows/reusable-build.yml
+    with:
+      configuration: Release
+      upload-artifact: true
+      artifact-name: app-uat
+
+  test:
+    needs: build
+    uses: ./.github/workflows/reusable-test.yml
+
+  migrate:
+    needs: test
+    uses: ./.github/workflows/reusable-migrate.yml
+    with:
+      environment: UAT
+    secrets:
+      connection-string: ${{ secrets.UAT_CONNECTION_STRING }}
+
+  deploy:
+    needs: migrate
+    uses: ./.github/workflows/reusable-deploy-azure.yml
+    with:
+      environment: UAT
+      app-name: utilitymenu-uat
+      artifact-name: app-uat
+    secrets:
+      azure-credentials: ${{ secrets.UAT_AZURE_CREDENTIALS }}

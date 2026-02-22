@@ -1,0 +1,10 @@
+<div class="licence-key-display d-flex align-items-center gap-2">
+    <code class="p-2 px-3 bg-light border rounded fs-5 letter-spacing-2 flex-grow-1 text-center">
+        @LicenceKey
+    </code>
+    <CopyButton TextToCopy="@LicenceKey" ButtonClass="btn-primary" />
+</div>
+
+@code {
+    [Parameter] public string LicenceKey { get; set; } = string.Empty;
+}

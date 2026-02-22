@@ -1,0 +1,77 @@
+@page "/docs"
+@inject IWebHostEnvironment Env
+
+<PageTitle>Documentation — UtilityMenu</PageTitle>
+<HeadContent>
+    <meta name="description" content="UtilityMenu documentation: getting started, features, licensing, and API reference." />
+</HeadContent>
+
+<div class="container py-5">
+    <div class="row">
+        <div class="col-md-3">
+            <nav class="docs-sidebar sticky-top pt-4">
+                <h6 class="text-uppercase text-muted small fw-semibold mb-3">Getting Started</h6>
+                <ul class="list-unstyled mb-4">
+                    <li><a href="/docs/getting-started/installation" class="text-decoration-none text-dark d-block py-1">Installation</a></li>
+                    <li><a href="/docs/getting-started/first-use" class="text-decoration-none text-dark d-block py-1">First Use</a></li>
+                    <li><a href="/docs/getting-started/trust-settings" class="text-decoration-none text-dark d-block py-1">Trust Settings</a></li>
+                </ul>
+                <h6 class="text-uppercase text-muted small fw-semibold mb-3">Features</h6>
+                <ul class="list-unstyled mb-4">
+                    <li><a href="/docs/features/core-modules" class="text-decoration-none text-dark d-block py-1">Core Modules</a></li>
+                    <li><a href="/docs/features/pro-modules" class="text-decoration-none text-dark d-block py-1">Pro Modules</a></li>
+                </ul>
+                <h6 class="text-uppercase text-muted small fw-semibold mb-3">Licensing</h6>
+                <ul class="list-unstyled mb-4">
+                    <li><a href="/docs/licensing/overview" class="text-decoration-none text-dark d-block py-1">Overview</a></li>
+                    <li><a href="/docs/licensing/activation" class="text-decoration-none text-dark d-block py-1">Activation</a></li>
+                    <li><a href="/docs/licensing/faq" class="text-decoration-none text-dark d-block py-1">FAQ</a></li>
+                </ul>
+                <h6 class="text-uppercase text-muted small fw-semibold mb-3">Reference</h6>
+                <ul class="list-unstyled mb-4">
+                    <li><a href="/docs/api/reference" class="text-decoration-none text-dark d-block py-1">API Reference</a></li>
+                    <li><a href="/docs/changelog" class="text-decoration-none text-dark d-block py-1">Changelog</a></li>
+                </ul>
+            </nav>
+        </div>
+        <div class="col-md-9">
+            <h1 class="fw-bold mb-3">Documentation</h1>
+            <p class="lead text-muted mb-5">Everything you need to install, configure, and get the most out of UtilityMenu.</p>
+
+            <div class="row g-4">
+                <div class="col-md-6">
+                    <div class="card border-0 shadow-sm p-4 h-100">
+                        <i class="bi bi-rocket-takeoff text-primary fs-3 mb-3"></i>
+                        <h5 class="fw-semibold">Getting Started</h5>
+                        <p class="text-muted small">Install UtilityMenu and set up your Excel environment in minutes.</p>
+                        <a href="/docs/getting-started/installation" class="btn btn-outline-primary btn-sm mt-auto">Read Guide</a>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card border-0 shadow-sm p-4 h-100">
+                        <i class="bi bi-puzzle text-primary fs-3 mb-3"></i>
+                        <h5 class="fw-semibold">Core Modules</h5>
+                        <p class="text-muted small">Discover all the free modules included with UtilityMenu.</p>
+                        <a href="/docs/features/core-modules" class="btn btn-outline-primary btn-sm mt-auto">Explore Modules</a>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card border-0 shadow-sm p-4 h-100">
+                        <i class="bi bi-key text-primary fs-3 mb-3"></i>
+                        <h5 class="fw-semibold">Licensing Guide</h5>
+                        <p class="text-muted small">Understand how licences work, how to activate, and how to manage seats.</p>
+                        <a href="/docs/licensing/overview" class="btn btn-outline-primary btn-sm mt-auto">Licensing Guide</a>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card border-0 shadow-sm p-4 h-100">
+                        <i class="bi bi-code-square text-primary fs-3 mb-3"></i>
+                        <h5 class="fw-semibold">API Reference</h5>
+                        <p class="text-muted small">Full reference for the UtilityMenu REST API used by the add-in.</p>
+                        <a href="/docs/api/reference" class="btn btn-outline-primary btn-sm mt-auto">API Docs</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

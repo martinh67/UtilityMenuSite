@@ -1,0 +1,90 @@
+@page "/account/login"
+@rendermode InteractiveServer
+@layout AuthLayout
+@using Microsoft.AspNetCore.Identity
+@inject SignInManager<Data.Models.ApplicationUser> SignInManager
+@inject NavigationManager Nav
+
+<PageTitle>Sign In — UtilityMenu</PageTitle>
+
+<h4 class="fw-bold mb-1">Welcome back</h4>
+<p class="text-muted small mb-4">Don't have an account? <a href="/account/register">Create one</a></p>
+
+@if (!string.IsNullOrWhiteSpace(_errorMessage))
+{
+    <AlertBanner Message="@_errorMessage" Type="danger" />
+}
+
+<EditForm Model="_model" OnValidSubmit="HandleLogin">
+    <DataAnnotationsValidator />
+
+    <div class="mb-3">
+        <label class="form-label small fw-semibold">Email Address</label>
+        <InputText @bind-Value="_model.Email" type="email" class="form-control" placeholder="you@example.com" />
+        <ValidationMessage For="() => _model.Email" class="text-danger small" />
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label small fw-semibold d-flex justify-content-between">
+            Password
+            <a href="/account/forgot-password" class="text-decoration-none small">Forgot password?</a>
+        </label>
+        <InputText @bind-Value="_model.Password" type="password" class="form-control" />
+        <ValidationMessage For="() => _model.Password" class="text-danger small" />
+    </div>
+
+    <div class="mb-4">
+        <div class="form-check">
+            <InputCheckbox @bind-Value="_model.RememberMe" class="form-check-input" id="remember" />
+            <label class="form-check-label small" for="remember">Remember me for 30 days</label>
+        </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary w-100" disabled="@_submitting">
+        @if (_submitting)
+        {
+            <span class="spinner-border spinner-border-sm me-2"></span>
+        }
+        Sign In
+    </button>
+</EditForm>
+
+@code {
+    [SupplyParameterFromQuery]
+    public string? ReturnUrl { get; set; }
+
+    private readonly LoginModel _model = new();
+    private string? _errorMessage;
+    private bool _submitting;
+
+    private async Task HandleLogin()
+    {
+        _submitting = true;
+        _errorMessage = null;
+
+        var result = await SignInManager.PasswordSignInAsync(
+            _model.Email!, _model.Password, _model.RememberMe, lockoutOnFailure: true);
+
+        if (result.Succeeded)
+        {
+            Nav.NavigateTo(ReturnUrl ?? "/dashboard", forceLoad: true);
+            return;
+        }
+
+        _errorMessage = result.IsLockedOut
+            ? "Your account has been locked due to too many failed attempts. Try again in 15 minutes."
+            : "Invalid email or password.";
+        _submitting = false;
+    }
+
+    private class LoginModel
+    {
+        [System.ComponentModel.DataAnnotations.Required, System.ComponentModel.DataAnnotations.EmailAddress]
+        public string? Email { get; set; }
+
+        [System.ComponentModel.DataAnnotations.Required]
+        public string Password { get; set; } = string.Empty;
+
+        public bool RememberMe { get; set; } = true;
+    }
+}

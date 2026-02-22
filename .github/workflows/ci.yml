@@ -1,0 +1,23 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop, 'feature/**', 'fix/**' ]
+  pull_request:
+    branches: [ main, develop ]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    uses: ./.github/workflows/reusable-build.yml
+    with:
+      configuration: Release
+
+  test:
+    needs: build
+    uses: ./.github/workflows/reusable-test.yml
+    with:
+      configuration: Release

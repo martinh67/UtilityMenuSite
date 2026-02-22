@@ -1,0 +1,69 @@
+name: Deploy — Production
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "deploy" to confirm production deployment'
+        required: true
+        type: string
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Confirm deployment
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          if [ "${{ github.event.inputs.confirm }}" != "deploy" ]; then
+            echo "Deployment not confirmed. Exiting."
+            exit 1
+          fi
+
+  build:
+    needs: guard
+    uses: ./.github/workflows/reusable-build.yml
+    with:
+      configuration: Release
+      upload-artifact: true
+      artifact-name: app-prod
+
+  test:
+    needs: build
+    uses: ./.github/workflows/reusable-test.yml
+
+  migrate:
+    needs: test
+    uses: ./.github/workflows/reusable-migrate.yml
+    with:
+      environment: Production
+    secrets:
+      connection-string: ${{ secrets.PROD_CONNECTION_STRING }}
+
+  deploy:
+    needs: migrate
+    uses: ./.github/workflows/reusable-deploy-azure.yml
+    with:
+      environment: Production
+      app-name: utilitymenu-prod
+      artifact-name: app-prod
+    secrets:
+      azure-credentials: ${{ secrets.PROD_AZURE_CREDENTIALS }}
+
+  notify:
+    needs: deploy
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Deployment summary
+        run: |
+          echo "Production deployment ${{ needs.deploy.result }} at $(date -u)"
+          echo "Tag: ${{ github.ref_name }}"
+          echo "Triggered by: ${{ github.actor }}"

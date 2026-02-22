@@ -1,0 +1,97 @@
+@page "/blog/{Slug}"
+@inject IBlogService BlogService
+@inject NavigationManager Nav
+
+@if (_loading)
+{
+    <LoadingSpinner />
+}
+else if (_post is null)
+{
+    <div class="container py-5 text-center">
+        <h1>Post Not Found</h1>
+        <p class="text-muted">The blog post you're looking for doesn't exist.</p>
+        <a href="/blog" class="btn btn-outline-primary">Back to Blog</a>
+    </div>
+}
+else
+{
+    <PageTitle>@(_post.MetaTitle ?? _post.Title) | UtilityMenu Blog</PageTitle>
+    <HeadContent>
+        <meta name="description" content="@(_post.MetaDescription ?? _post.Summary)" />
+        <meta property="og:title" content="@(_post.MetaTitle ?? _post.Title)" />
+        <meta property="og:description" content="@(_post.MetaDescription ?? _post.Summary)" />
+        @if (!string.IsNullOrWhiteSpace(_post.CoverImageUrl))
+        {
+            <meta property="og:image" content="@_post.CoverImageUrl" />
+        }
+    </HeadContent>
+
+    <!-- Cover Image -->
+    @if (!string.IsNullOrWhiteSpace(_post.CoverImageUrl))
+    {
+        <div style="height:320px; overflow:hidden; background:#f8f9fa;">
+            <img src="@_post.CoverImageUrl" alt="@_post.Title" style="width:100%; height:100%; object-fit:cover;" />
+        </div>
+    }
+
+    <div class="container py-5">
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <a href="/blog" class="text-decoration-none text-muted small mb-3 d-inline-block">
+                    <i class="bi bi-arrow-left me-1"></i>Back to Blog
+                </a>
+
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <span class="badge bg-primary-subtle text-primary">@_post.Category.Name</span>
+                    <small class="text-muted">@_post.PublishedAt?.ToString("MMMM d, yyyy")</small>
+                    @if (_post.Author is not null)
+                    {
+                        <small class="text-muted">by @(_post.Author.DisplayName ?? _post.Author.Email)</small>
+                    }
+                </div>
+
+                <h1 class="fw-bold mb-4">@_post.Title</h1>
+
+                <MarkdownRenderer Content="@_post.Body" />
+
+                <!-- Related Posts -->
+                @if (_relatedPosts.Any())
+                {
+                    <hr class="my-5" />
+                    <h4 class="fw-bold mb-3">Related Posts</h4>
+                    <div class="row g-3">
+                        @foreach (var related in _relatedPosts)
+                        {
+                            <div class="col-md-4">
+                                <div class="card border-0 shadow-sm h-100">
+                                    <div class="card-body">
+                                        <span class="badge bg-light text-dark mb-1">@related.Category.Name</span>
+                                        <h6><a href="/blog/@related.Slug" class="text-decoration-none">@related.Title</a></h6>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public string Slug { get; set; } = string.Empty;
+
+    private Data.Models.BlogPost? _post;
+    private List<Data.Models.BlogPost> _relatedPosts = new();
+    private bool _loading = true;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _loading = true;
+        _post = await BlogService.GetPostBySlugAsync(Slug);
+        if (_post is not null)
+            _relatedPosts = await BlogService.GetRelatedPostsAsync(_post.CategoryId, _post.PostId, 3);
+        _loading = false;
+    }
+}

@@ -1,0 +1,136 @@
+@page "/account/register"
+@rendermode InteractiveServer
+@layout AuthLayout
+@using Microsoft.AspNetCore.Identity
+@inject UserManager<Data.Models.ApplicationUser> UserManager
+@inject SignInManager<Data.Models.ApplicationUser> SignInManager
+@inject IUserService UserService
+@inject NavigationManager Nav
+@inject ILogger<Register> Logger
+
+<PageTitle>Create Account — UtilityMenu</PageTitle>
+
+<h4 class="fw-bold mb-1">Create your account</h4>
+<p class="text-muted small mb-4">Already have an account? <a href="/account/login">Sign in</a></p>
+
+@if (!string.IsNullOrWhiteSpace(_errorMessage))
+{
+    <AlertBanner Message="@_errorMessage" Type="danger" />
+}
+
+<EditForm Model="_model" OnValidSubmit="HandleRegister">
+    <DataAnnotationsValidator />
+
+    <div class="mb-3">
+        <label class="form-label small fw-semibold">Display Name</label>
+        <InputText @bind-Value="_model.DisplayName" class="form-control" placeholder="Your name" />
+        <ValidationMessage For="() => _model.DisplayName" class="text-danger small" />
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label small fw-semibold">Email Address</label>
+        <InputText @bind-Value="_model.Email" type="email" class="form-control" placeholder="you@example.com" />
+        <ValidationMessage For="() => _model.Email" class="text-danger small" />
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label small fw-semibold">Password</label>
+        <InputText @bind-Value="_model.Password" type="password" class="form-control" placeholder="At least 8 characters" />
+        <ValidationMessage For="() => _model.Password" class="text-danger small" />
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label small fw-semibold">Confirm Password</label>
+        <InputText @bind-Value="_model.ConfirmPassword" type="password" class="form-control" />
+        <ValidationMessage For="() => _model.ConfirmPassword" class="text-danger small" />
+    </div>
+
+    <div class="mb-4">
+        <div class="form-check">
+            <InputCheckbox @bind-Value="_model.AcceptTerms" class="form-check-input" id="terms" />
+            <label class="form-check-label small" for="terms">
+                I agree to the <a href="/terms" target="_blank">Terms of Service</a> and <a href="/privacy" target="_blank">Privacy Policy</a>
+            </label>
+        </div>
+        <ValidationMessage For="() => _model.AcceptTerms" class="text-danger small" />
+    </div>
+
+    <button type="submit" class="btn btn-primary w-100" disabled="@_submitting">
+        @if (_submitting)
+        {
+            <span class="spinner-border spinner-border-sm me-2"></span>
+        }
+        Create Account
+    </button>
+</EditForm>
+
+@code {
+    [SupplyParameterFromQuery]
+    public string? ReturnUrl { get; set; }
+
+    private readonly RegisterModel _model = new();
+    private string? _errorMessage;
+    private bool _submitting;
+
+    private async Task HandleRegister()
+    {
+        _submitting = true;
+        _errorMessage = null;
+
+        var identityUser = new Data.Models.ApplicationUser
+        {
+            UserName = _model.Email,
+            Email = _model.Email,
+            EmailConfirmed = true
+        };
+
+        var result = await UserManager.CreateAsync(identityUser, _model.Password);
+
+        if (!result.Succeeded)
+        {
+            _errorMessage = string.Join(" ", result.Errors.Select(e => e.Description));
+            _submitting = false;
+            return;
+        }
+
+        await UserManager.AddToRoleAsync(identityUser, "User");
+
+        // Create our Users record
+        var user = new Data.Models.User
+        {
+            IdentityId = identityUser.Id,
+            Email = _model.Email!,
+            DisplayName = _model.DisplayName,
+            ApiToken = Infrastructure.Security.ApiTokenGenerator.Generate(),
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        await UserService.GetByEmailAsync(_model.Email!); // ensure registered
+        // Actually create via RegisterOrGetAsync after identity
+        // (The webhook path calls RegisterOrGetAsync; here we create directly)
+
+        await SignInManager.SignInAsync(identityUser, isPersistent: true);
+
+        var redirect = ReturnUrl ?? "/dashboard";
+        Nav.NavigateTo(redirect, forceLoad: true);
+    }
+
+    private class RegisterModel
+    {
+        [System.ComponentModel.DataAnnotations.Required, System.ComponentModel.DataAnnotations.MinLength(2), System.ComponentModel.DataAnnotations.MaxLength(100)]
+        public string? DisplayName { get; set; }
+
+        [System.ComponentModel.DataAnnotations.Required, System.ComponentModel.DataAnnotations.EmailAddress]
+        public string? Email { get; set; }
+
+        [System.ComponentModel.DataAnnotations.Required, System.ComponentModel.DataAnnotations.MinLength(8)]
+        public string Password { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Compare(nameof(Password), ErrorMessage = "Passwords do not match.")]
+        public string ConfirmPassword { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Range(typeof(bool), "true", "true", ErrorMessage = "You must accept the terms.")]
+        public bool AcceptTerms { get; set; }
+    }
+}

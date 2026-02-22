@@ -1,0 +1,147 @@
+@page "/admin/users/{UserId:guid}"
+@rendermode InteractiveServer
+@layout AdminLayout
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
+@inject IUserService UserService
+@inject ILicenceService LicenceService
+
+<PageTitle>User Detail — Admin</PageTitle>
+
+@if (_loading)
+{
+    <LoadingSpinner />
+}
+else if (_user is null)
+{
+    <AlertBanner Message="User not found." Type="danger" Dismissible="false" />
+}
+else
+{
+    <div class="mb-3">
+        <a href="/admin" class="text-decoration-none text-muted small"><i class="bi bi-arrow-left me-1"></i>Back to Admin</a>
+    </div>
+
+    <h2 class="fw-bold mb-4">@(_user.DisplayName ?? _user.Email)</h2>
+
+    <div class="row g-4">
+        <!-- Account Info -->
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-transparent border-0 fw-semibold">Account Details</div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-4 text-muted small">Email</dt>
+                        <dd class="col-sm-8 small">@_user.Email</dd>
+                        <dt class="col-sm-4 text-muted small">User ID</dt>
+                        <dd class="col-sm-8 small text-muted">@_user.UserId</dd>
+                        <dt class="col-sm-4 text-muted small">Registered</dt>
+                        <dd class="col-sm-8 small">@_user.CreatedAt.ToString("MMMM d, yyyy")</dd>
+                        <dt class="col-sm-4 text-muted small">Status</dt>
+                        <dd class="col-sm-8"><span class="badge @(_user.IsActive ? "bg-success" : "bg-danger")">@(_user.IsActive ? "Active" : "Inactive")</span></dd>
+                        <dt class="col-sm-4 text-muted small">API Token</dt>
+                        <dd class="col-sm-8 small text-muted">@(_user.ApiToken[..8] + "...")</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+
+        <!-- Licence Panel -->
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-transparent border-0 fw-semibold">Licence</div>
+                <div class="card-body">
+                    @if (_licence is not null)
+                    {
+                        <dl class="row mb-0">
+                            <dt class="col-sm-4 text-muted small">Key</dt>
+                            <dd class="col-sm-8"><code class="small">@_licence.LicenceKey</code></dd>
+                            <dt class="col-sm-4 text-muted small">Type</dt>
+                            <dd class="col-sm-8 small">@_licence.LicenceType</dd>
+                            <dt class="col-sm-4 text-muted small">Status</dt>
+                            <dd class="col-sm-8"><span class="badge @(_licence.IsActive ? "bg-success" : "bg-danger")">@(_licence.IsActive ? "Active" : "Inactive")</span></dd>
+                            @if (_licence.ExpiresAt.HasValue)
+                            {
+                                <dt class="col-sm-4 text-muted small">Expires</dt>
+                                <dd class="col-sm-8 small">@_licence.ExpiresAt.Value.ToString("MMM d, yyyy")</dd>
+                            }
+                        </dl>
+                        @if (_licence.LicenceModules.Any())
+                        {
+                            <div class="mt-3">
+                                <small class="text-muted fw-semibold d-block mb-2">Modules</small>
+                                <div class="d-flex flex-wrap gap-1">
+                                    @foreach (var lm in _licence.LicenceModules)
+                                    {
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle small">@lm.Module.ModuleName</span>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <p class="text-muted">No active licence.</p>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Active Machines -->
+        @if (_licence is not null && _machines.Any())
+        {
+            <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-transparent border-0 fw-semibold">Active Machines</div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead><tr><th>Name</th><th>First Seen</th><th>Last Seen</th><th>Action</th></tr></thead>
+                                <tbody>
+                                    @foreach (var m in _machines)
+                                    {
+                                        <tr>
+                                            <td>@(m.MachineName ?? "Unknown")</td>
+                                            <td>@m.FirstSeenAt.ToString("MMM d, yyyy")</td>
+                                            <td>@m.LastSeenAt.ToString("MMM d, yyyy")</td>
+                                            <td>
+                                                <button class="btn btn-outline-danger btn-sm" @onclick="() => DeactivateMachine(m.MachineId)">Deactivate</button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public Guid UserId { get; set; }
+
+    private Data.Models.User? _user;
+    private Data.Models.Licence? _licence;
+    private List<Data.Models.Machine> _machines = new();
+    private bool _loading = true;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _user = await UserService.GetWithLicenceAsync(UserId);
+        if (_user is not null)
+        {
+            _licence = await LicenceService.GetActiveLicenceAsync(UserId);
+            if (_licence is not null)
+                _machines = await LicenceService.GetActiveMachinesAsync(_licence.LicenceId);
+        }
+        _loading = false;
+    }
+
+    private async Task DeactivateMachine(Guid machineId)
+    {
+        await LicenceService.DeactivateMachineAsync(machineId);
+        if (_licence is not null)
+            _machines = await LicenceService.GetActiveMachinesAsync(_licence.LicenceId);
+    }
+}

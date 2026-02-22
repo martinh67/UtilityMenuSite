@@ -1,0 +1,53 @@
+<div class="card h-100 @(IsFeatured ? "border-primary shadow" : "")">
+    @if (IsFeatured)
+    {
+        <div class="card-header bg-primary text-white text-center small fw-semibold">
+            MOST POPULAR
+        </div>
+    }
+    <div class="card-body d-flex flex-column p-4">
+        <h3 class="card-title fw-bold">@Title</h3>
+        <div class="mb-3">
+            <span class="fs-2 fw-bold">@Price</span>
+            @if (!string.IsNullOrWhiteSpace(Period))
+            {
+                <span class="text-muted">/@Period</span>
+            }
+        </div>
+        <p class="text-muted">@Description</p>
+        <ul class="list-unstyled mb-4">
+            @foreach (var feature in Features)
+            {
+                <li class="mb-2">
+                    <i class="bi bi-check-circle-fill text-success me-2"></i>@feature
+                </li>
+            }
+        </ul>
+        <div class="mt-auto">
+            @if (OnCtaClick.HasDelegate)
+            {
+                <button @onclick="OnCtaClick" class="btn @(IsFeatured ? "btn-primary" : "btn-outline-primary") w-100">
+                    @CtaLabel
+                </button>
+            }
+            else
+            {
+                <a href="@CtaHref" class="btn @(IsFeatured ? "btn-primary" : "btn-outline-primary") w-100">
+                    @CtaLabel
+                </a>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public string Title { get; set; } = string.Empty;
+    [Parameter] public string Price { get; set; } = string.Empty;
+    [Parameter] public string? Period { get; set; }
+    [Parameter] public string Description { get; set; } = string.Empty;
+    [Parameter] public List<string> Features { get; set; } = new();
+    [Parameter] public string CtaLabel { get; set; } = "Get Started";
+    [Parameter] public string CtaHref { get; set; } = "/pricing";
+    [Parameter] public bool IsFeatured { get; set; }
+    [Parameter] public EventCallback OnCtaClick { get; set; }
+}

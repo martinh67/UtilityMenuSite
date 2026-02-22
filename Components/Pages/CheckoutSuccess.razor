@@ -1,0 +1,142 @@
+@page "/checkout/success"
+@rendermode InteractiveServer
+@inject NavigationManager Nav
+@inject HttpClient Http
+
+<PageTitle>Payment Successful — UtilityMenu</PageTitle>
+
+<div class="container py-6">
+    <div class="row justify-content-center">
+        <div class="col-md-7 text-center">
+            @if (_loading)
+            {
+                <LoadingSpinner Message="Confirming your payment..." />
+            }
+            else if (!string.IsNullOrWhiteSpace(_licenceKey))
+            {
+                <!-- Success State -->
+                <div class="mb-4">
+                    <div class="bg-success bg-opacity-10 rounded-circle d-inline-flex p-4 mb-3">
+                        <i class="bi bi-check-circle-fill text-success display-4"></i>
+                    </div>
+                    <h1 class="fw-bold text-success">Payment Successful!</h1>
+                    <p class="lead text-muted">Your Pro licence has been activated. Here is your licence key:</p>
+                </div>
+
+                <div class="card border-0 shadow-sm p-4 mb-4">
+                    <LicenceKeyDisplay LicenceKey="@_licenceKey" />
+                    <p class="text-muted small mt-3 mb-0">Save this key — you'll need it to activate UtilityMenu on each machine.</p>
+                </div>
+
+                <!-- Next Steps -->
+                <div class="card border-0 shadow-sm p-4 mb-4 text-start">
+                    <h5 class="fw-bold mb-3">Next Steps</h5>
+                    <div class="d-flex align-items-start gap-3 mb-3">
+                        <div class="bg-primary rounded-circle text-white d-flex align-items-center justify-content-center flex-shrink-0" style="width:32px;height:32px;font-weight:bold;">1</div>
+                        <div>
+                            <strong>Download UtilityMenu</strong>
+                            <p class="text-muted small mb-0">Download and run the installer for Windows.</p>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-start gap-3 mb-3">
+                        <div class="bg-primary rounded-circle text-white d-flex align-items-center justify-content-center flex-shrink-0" style="width:32px;height:32px;font-weight:bold;">2</div>
+                        <div>
+                            <strong>Open Excel</strong>
+                            <p class="text-muted small mb-0">You'll find the UtilityMenu tab in your Excel ribbon.</p>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-start gap-3">
+                        <div class="bg-primary rounded-circle text-white d-flex align-items-center justify-content-center flex-shrink-0" style="width:32px;height:32px;font-weight:bold;">3</div>
+                        <div>
+                            <strong>Enter Your Licence Key</strong>
+                            <p class="text-muted small mb-0">Go to UtilityMenu &rarr; Settings &rarr; Enter Licence Key and paste the key above.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex gap-3 justify-content-center">
+                    <a href="/downloads/UtilityMenuInstaller.exe" class="btn btn-primary btn-lg">
+                        <i class="bi bi-download me-2"></i>Download UtilityMenu
+                    </a>
+                    <a href="/dashboard" class="btn btn-outline-primary btn-lg">View Dashboard</a>
+                </div>
+            }
+            else if (_timedOut)
+            {
+                <div class="alert alert-warning">
+                    <h4 class="alert-heading">Still Processing</h4>
+                    <p>Your payment was received but the licence is still being set up. Please check your dashboard in a few minutes, or <a href="/contact">contact support</a> if this persists.</p>
+                </div>
+            }
+            else if (!string.IsNullOrWhiteSpace(_error))
+            {
+                <AlertBanner Message="@_error" Type="danger" />
+                <a href="/contact" class="btn btn-outline-danger mt-3">Contact Support</a>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromQuery(Name = "session_id")]
+    public string? SessionId { get; set; }
+
+    private bool _loading = true;
+    private bool _timedOut;
+    private string? _licenceKey;
+    private string? _error;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        if (string.IsNullOrWhiteSpace(SessionId))
+        {
+            _loading = false;
+            _error = "No session ID provided.";
+            StateHasChanged();
+            return;
+        }
+
+        await PollForLicenceAsync();
+    }
+
+    private async Task PollForLicenceAsync()
+    {
+        var timeout = DateTime.UtcNow.AddSeconds(60);
+
+        while (DateTime.UtcNow < timeout)
+        {
+            try
+            {
+                var response = await Http.GetFromJsonAsync<StatusResponse>(
+                    $"/api/checkout/status?sessionId={Uri.EscapeDataString(SessionId!)}");
+
+                if (response?.Status == "complete" && !string.IsNullOrWhiteSpace(response.LicenceKey))
+                {
+                    _licenceKey = response.LicenceKey;
+                    _loading = false;
+                    StateHasChanged();
+                    return;
+                }
+
+                if (response?.Status is "expired" or "failed")
+                {
+                    _error = "Payment was not completed. Please try again.";
+                    _loading = false;
+                    StateHasChanged();
+                    return;
+                }
+            }
+            catch { /* retry */ }
+
+            await Task.Delay(3000);
+        }
+
+        _timedOut = true;
+        _loading = false;
+        StateHasChanged();
+    }
+
+    private record StatusResponse(string Status, string? LicenceKey, string? CustomerEmail);
+}

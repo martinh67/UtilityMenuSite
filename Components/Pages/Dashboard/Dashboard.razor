@@ -1,0 +1,316 @@
+@page "/dashboard"
+@rendermode InteractiveServer
+@layout DashboardLayout
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Identity
+@inject AuthenticationStateProvider AuthProvider
+@inject UserManager<Data.Models.ApplicationUser> UserManager
+@inject IUserService UserService
+@inject ILicenceService LicenceService
+@inject IStripeService StripeService
+@inject IVersionManifestService VersionService
+@inject NavigationManager Nav
+@inject ILogger<Dashboard> Logger
+
+<PageTitle>Dashboard — UtilityMenu</PageTitle>
+
+@if (_loading)
+{
+    <LoadingSpinner Message="Loading your dashboard..." />
+}
+else
+{
+    <!-- Welcome Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-0">Welcome back@(!string.IsNullOrWhiteSpace(_user?.DisplayName) ? $", {_user.DisplayName}" : "")!</h2>
+            <p class="text-muted mb-0">@_user?.Email</p>
+        </div>
+        @if (_version is not null)
+        {
+            <a href="/downloads/UtilityMenuInstaller.exe" class="btn btn-primary">
+                <i class="bi bi-download me-2"></i>Download v@_version.Version
+            </a>
+        }
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(_message))
+    {
+        <AlertBanner Message="@_message" Type="@_messageType" />
+    }
+
+    <div class="row g-4">
+        <!-- Licence Status Card -->
+        <div class="col-md-6">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-header bg-transparent border-0 fw-semibold">
+                    <i class="bi bi-key me-2 text-primary"></i>Licence
+                </div>
+                <div class="card-body">
+                    @if (_licence is not null)
+                    {
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <span class="badge @(_licence.IsActive ? "bg-success" : "bg-danger") fs-6">
+                                @(_licence.IsActive ? "Active" : "Inactive")
+                            </span>
+                            <span class="badge bg-light text-dark">@_licence.LicenceType.ToUpperInvariant()</span>
+                        </div>
+                        <LicenceKeyDisplay LicenceKey="@_licence.LicenceKey" />
+                        @if (_licence.ExpiresAt.HasValue)
+                        {
+                            <p class="text-muted small mt-2 mb-0">
+                                Expires: @_licence.ExpiresAt.Value.ToString("MMMM d, yyyy")
+                            </p>
+                        }
+                    }
+                    else
+                    {
+                        <p class="text-muted">No active licence. <a href="/pricing">Upgrade to Pro</a></p>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Subscription Card -->
+        <div class="col-md-6">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-header bg-transparent border-0 fw-semibold">
+                    <i class="bi bi-credit-card me-2 text-primary"></i>Subscription
+                </div>
+                <div class="card-body">
+                    @if (_subscription is not null)
+                    {
+                        <p class="mb-1"><strong>Plan:</strong> @_subscription.PlanType.ToUpperInvariant()</p>
+                        <p class="mb-1">
+                            <strong>Status:</strong>
+                            <span class="badge @GetStatusBadge(_subscription.Status)">@_subscription.Status</span>
+                        </p>
+                        @if (_subscription.CurrentPeriodEnd.HasValue)
+                        {
+                            <p class="mb-3"><strong>Renews:</strong> @_subscription.CurrentPeriodEnd.Value.ToString("MMM d, yyyy")</p>
+                        }
+                        @if (_user?.StripeCustomer is not null)
+                        {
+                            <button class="btn btn-outline-primary btn-sm" @onclick="ManageBilling" disabled="@_billingLoading">
+                                @if (_billingLoading)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-1"></span>
+                                }
+                                <i class="bi bi-box-arrow-up-right me-1"></i>Manage Billing
+                            </button>
+                        }
+                    }
+                    else
+                    {
+                        <p class="text-muted">No active subscription.</p>
+                        <a href="/pricing" class="btn btn-primary btn-sm">Upgrade to Pro</a>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- API Token Card -->
+        <div class="col-md-6">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-header bg-transparent border-0 fw-semibold">
+                    <i class="bi bi-shield-lock me-2 text-primary"></i>API Token
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small mb-2">Use this token in the UtilityMenu add-in settings.</p>
+                    <div class="d-flex gap-2 align-items-center mb-2">
+                        <code class="p-2 bg-light border rounded flex-grow-1 text-truncate small">
+                            @(_showToken ? _user?.ApiToken : MaskToken(_user?.ApiToken))
+                        </code>
+                        <button class="btn btn-outline-secondary btn-sm" @onclick="() => _showToken = !_showToken">
+                            <i class="bi @(_showToken ? "bi-eye-slash" : "bi-eye")"></i>
+                        </button>
+                        <CopyButton TextToCopy="@(_user?.ApiToken ?? "")" />
+                    </div>
+                    <button class="btn btn-outline-warning btn-sm" @onclick="RegenerateToken" disabled="@_regenerating">
+                        @if (_regenerating) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                        <i class="bi bi-arrow-repeat me-1"></i>Regenerate
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Active Machines Card -->
+        <div class="col-md-6">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-header bg-transparent border-0 fw-semibold">
+                    <i class="bi bi-laptop me-2 text-primary"></i>Active Machines
+                    @if (_licence is not null)
+                    {
+                        <span class="badge bg-secondary ms-2">@_machines.Count / @_licence.MaxActivations</span>
+                    }
+                </div>
+                <div class="card-body">
+                    @if (_machines.Any())
+                    {
+                        @foreach (var machine in _machines)
+                        {
+                            <div class="d-flex justify-content-between align-items-center mb-2 p-2 bg-light rounded">
+                                <div>
+                                    <strong class="small">@(machine.MachineName ?? "Unknown Machine")</strong>
+                                    <div class="text-muted" style="font-size:0.75rem;">Last seen: @machine.LastSeenAt.ToString("MMM d, yyyy")</div>
+                                </div>
+                                <button class="btn btn-outline-danger btn-sm" @onclick="() => DeactivateMachine(machine.MachineId)">
+                                    <i class="bi bi-x"></i>
+                                </button>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <p class="text-muted small">No machines activated yet.</p>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Module Entitlements Card -->
+        @if (_licence is not null && _licence.LicenceModules.Any())
+        {
+            <div class="col-md-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-transparent border-0 fw-semibold">
+                        <i class="bi bi-puzzle me-2 text-primary"></i>Module Entitlements
+                    </div>
+                    <div class="card-body">
+                        <div class="d-flex flex-wrap gap-2">
+                            @foreach (var lm in _licence.LicenceModules)
+                            {
+                                <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2">
+                                    <i class="bi bi-check-circle me-1"></i>@lm.Module.DisplayName
+                                </span>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private Data.Models.User? _user;
+    private Data.Models.Licence? _licence;
+    private Data.Models.Subscription? _subscription;
+    private List<Data.Models.Machine> _machines = new();
+    private Core.Models.VersionManifest? _version;
+    private bool _loading = true;
+    private bool _billingLoading;
+    private bool _regenerating;
+    private bool _showToken;
+    private string? _message;
+    private string _messageType = "info";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        await LoadDashboardAsync();
+    }
+
+    private async Task LoadDashboardAsync()
+    {
+        try
+        {
+            var authState = await AuthProvider.GetAuthenticationStateAsync();
+            var identityUser = await UserManager.GetUserAsync(authState.User);
+            if (identityUser is null) { Nav.NavigateTo("/account/login"); return; }
+
+            _user = await UserService.GetWithLicenceAsync(Guid.Empty); // Will fix with proper lookup
+
+            // Get the proper user via identity ID
+            _user = await UserService.GetByIdentityIdAsync(identityUser.Id);
+            if (_user is null)
+            {
+                // First time: create user record
+                _user = await UserService.RegisterOrGetAsync(identityUser.Email!);
+                if (_user.IdentityId == string.Empty)
+                {
+                    _user.IdentityId = identityUser.Id;
+                }
+            }
+
+            _user = await UserService.GetWithLicenceAsync(_user.UserId);
+            _licence = await LicenceService.GetActiveLicenceAsync(_user!.UserId);
+            _subscription = await LicenceService.GetSubscriptionAsync(_user.UserId);
+            _version = await VersionService.GetLatestAsync();
+
+            if (_licence is not null)
+                _machines = await LicenceService.GetActiveMachinesAsync(_licence.LicenceId);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load dashboard");
+            _message = "Failed to load dashboard data.";
+            _messageType = "danger";
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ManageBilling()
+    {
+        _billingLoading = true;
+        try
+        {
+            var result = await StripeService.CreateBillingPortalSessionAsync(_user!.StripeCustomer!.StripeCustomerId);
+            Nav.NavigateTo(result.Url, forceLoad: true);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to create billing portal");
+            _message = "Failed to open billing portal. Please try again.";
+            _messageType = "danger";
+        }
+        _billingLoading = false;
+    }
+
+    private async Task RegenerateToken()
+    {
+        _regenerating = true;
+        try
+        {
+            var newToken = await UserService.RegenerateApiTokenAsync(_user!.UserId);
+            _user!.ApiToken = newToken;
+            _message = "API token regenerated successfully. Update your add-in settings.";
+            _messageType = "warning";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to regenerate API token");
+            _message = "Failed to regenerate token.";
+            _messageType = "danger";
+        }
+        _regenerating = false;
+    }
+
+    private async Task DeactivateMachine(Guid machineId)
+    {
+        await LicenceService.DeactivateMachineAsync(machineId);
+        _machines = await LicenceService.GetActiveMachinesAsync(_licence!.LicenceId);
+        StateHasChanged();
+    }
+
+    private static string MaskToken(string? token)
+    {
+        if (string.IsNullOrWhiteSpace(token)) return "—";
+        return token[..8] + "••••••••••••••••••••••••••••••••••••••••••••••••" + token[^4..];
+    }
+
+    private static string GetStatusBadge(string status) => status switch
+    {
+        "active" => "bg-success",
+        "trialing" => "bg-info",
+        "past_due" => "bg-warning text-dark",
+        "canceled" => "bg-danger",
+        "grace_period" => "bg-warning text-dark",
+        _ => "bg-secondary"
+    };
+}

@@ -1,0 +1,11 @@
+@inherits LayoutComponentBase
+
+<div class="admin-layout d-flex">
+    <AdminSidebar />
+    <div class="admin-main flex-grow-1">
+        <AdminNavBar />
+        <main class="p-4">
+            @Body
+        </main>
+    </div>
+</div>

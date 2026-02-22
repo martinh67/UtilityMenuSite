@@ -1,0 +1,61 @@
+@page "/docs/{*Slug}"
+@inject IWebHostEnvironment Env
+
+@if (_loading)
+{
+    <LoadingSpinner />
+}
+else if (!string.IsNullOrWhiteSpace(_content))
+{
+    <PageTitle>@_title | UtilityMenu Docs</PageTitle>
+    <div class="container py-5">
+        <div class="row">
+            <div class="col-md-3">
+                <nav class="docs-sidebar sticky-top pt-4">
+                    <a href="/docs" class="text-decoration-none text-muted small">
+                        <i class="bi bi-arrow-left me-1"></i>All Docs
+                    </a>
+                </nav>
+            </div>
+            <div class="col-md-9">
+                <MarkdownRenderer Content="@_content" />
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <PageTitle>Not Found — UtilityMenu Docs</PageTitle>
+    <div class="container py-5 text-center">
+        <h2>Documentation page not found</h2>
+        <a href="/docs" class="btn btn-outline-primary mt-3">Back to Docs</a>
+    </div>
+}
+
+@code {
+    [Parameter] public string? Slug { get; set; }
+
+    private string? _content;
+    private string _title = "Docs";
+    private bool _loading = true;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _loading = true;
+
+        var safePath = Slug?.Replace("..", "").TrimStart('/') ?? "";
+        var filePath = Path.Combine(Env.WebRootPath, "docs", safePath.Replace('/', Path.DirectorySeparatorChar) + ".md");
+
+        if (File.Exists(filePath))
+        {
+            _content = await File.ReadAllTextAsync(filePath);
+            _title = Path.GetFileNameWithoutExtension(safePath);
+        }
+        else
+        {
+            _content = null;
+        }
+
+        _loading = false;
+    }
+}

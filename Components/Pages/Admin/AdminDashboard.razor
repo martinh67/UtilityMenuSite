@@ -1,0 +1,178 @@
+@page "/admin"
+@rendermode InteractiveServer
+@layout AdminLayout
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
+@inject IUserService UserService
+@inject IContactService ContactService
+@inject IStripeWebhookService WebhookService
+
+<PageTitle>Admin Dashboard — UtilityMenu</PageTitle>
+
+@if (_loading)
+{
+    <LoadingSpinner Message="Loading admin data..." />
+}
+else
+{
+    <h2 class="fw-bold mb-4">Admin Dashboard</h2>
+
+    <!-- Stats Panel -->
+    <div class="row g-3 mb-5">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm text-center p-3">
+                <div class="fs-2 fw-bold text-primary">@_stats?.TotalUsers</div>
+                <div class="text-muted small">Total Users</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm text-center p-3">
+                <div class="fs-2 fw-bold text-success">@_stats?.ActiveLicences</div>
+                <div class="text-muted small">Active Licences</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm text-center p-3">
+                <div class="fs-2 fw-bold text-info">@_stats?.RecentSignups</div>
+                <div class="text-muted small">Signups (7 days)</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm text-center p-3">
+                <div class="fs-2 fw-bold @(_stats?.PendingContactSubmissions > 0 ? "text-warning" : "text-secondary")">
+                    @_stats?.PendingContactSubmissions
+                </div>
+                <div class="text-muted small">Pending Contacts</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- User Search -->
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent border-0 fw-semibold d-flex justify-content-between">
+                    <span><i class="bi bi-people me-2"></i>User Search</span>
+                    <a href="/admin/blog" class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-pencil-square me-1"></i>Blog Admin
+                    </a>
+                </div>
+                <div class="card-body">
+                    <div class="input-group mb-3">
+                        <input type="text" class="form-control" placeholder="Search by email..." @bind="_userQuery" @bind:event="oninput" @onkeyup="SearchUsers" />
+                        <button class="btn btn-outline-secondary" @onclick="SearchUsers">Search</button>
+                    </div>
+                    @foreach (var user in _users)
+                    {
+                        <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                            <div>
+                                <div class="fw-semibold small">@user.Email</div>
+                                <div class="text-muted" style="font-size:0.75rem;">Joined @user.CreatedAt.ToString("MMM d, yyyy")</div>
+                            </div>
+                            <a href="/admin/users/@user.UserId" class="btn btn-sm btn-outline-primary">View</a>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Contact Queue -->
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent border-0 fw-semibold">
+                    <i class="bi bi-envelope me-2"></i>Contact Queue
+                </div>
+                <div class="card-body">
+                    @if (_contacts.Any())
+                    {
+                        @foreach (var contact in _contacts.Take(5))
+                        {
+                            <div class="mb-3 p-2 bg-light rounded">
+                                <div class="d-flex justify-content-between">
+                                    <strong class="small">@contact.Name</strong>
+                                    <small class="text-muted">@contact.SubmittedAt.ToString("MMM d")</small>
+                                </div>
+                                <div class="text-muted small">@contact.Subject</div>
+                                <button class="btn btn-outline-success btn-sm mt-1"
+                                        @onclick="() => ResolveContact(contact.SubmissionId)">
+                                    Mark Resolved
+                                </button>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <p class="text-muted small">No pending submissions.</p>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Failed Webhooks -->
+        @if (_failedWebhooks.Any())
+        {
+            <div class="col-12">
+                <div class="card border-0 shadow-sm border-warning">
+                    <div class="card-header bg-warning bg-opacity-10 border-0 fw-semibold text-warning">
+                        <i class="bi bi-exclamation-triangle me-2"></i>Failed Webhook Events (@_failedWebhooks.Count)
+                    </div>
+                    <div class="card-body">
+                        @foreach (var webhook in _failedWebhooks)
+                        {
+                            <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                                <div>
+                                    <span class="badge bg-secondary me-2">@webhook.EventType</span>
+                                    <small class="text-muted">@webhook.ReceivedAt.ToString("MMM d HH:mm")</small>
+                                </div>
+                                <button class="btn btn-sm btn-outline-warning" @onclick="() => RetryWebhook(webhook.WebhookEventId)">
+                                    <i class="bi bi-arrow-repeat me-1"></i>Retry
+                                </button>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private Core.Models.AdminStatsDto? _stats;
+    private List<Data.Models.User> _users = new();
+    private List<Data.Models.ContactSubmission> _contacts = new();
+    private List<Data.Models.StripeWebhookEvent> _failedWebhooks = new();
+    private string _userQuery = string.Empty;
+    private bool _loading = true;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _stats = await UserService.GetAdminStatsAsync();
+        _contacts = await ContactService.GetPendingSubmissionsAsync();
+        _failedWebhooks = await WebhookService.GetFailedEventsAsync();
+        _loading = false;
+        StateHasChanged();
+    }
+
+    private async Task SearchUsers()
+    {
+        if (!string.IsNullOrWhiteSpace(_userQuery))
+            _users = await UserService.SearchUsersAsync(_userQuery);
+    }
+
+    private async Task ResolveContact(Guid id)
+    {
+        await ContactService.ResolveAsync(id, null);
+        _contacts = await ContactService.GetPendingSubmissionsAsync();
+    }
+
+    private async Task RetryWebhook(Guid id)
+    {
+        await WebhookService.RetryEventAsync(id);
+        _failedWebhooks = await WebhookService.GetFailedEventsAsync();
+    }
+}

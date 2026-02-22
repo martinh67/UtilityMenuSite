@@ -1,0 +1,31 @@
+name: Database Migration (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+    secrets:
+      connection-string:
+        required: true
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup-dotnet
+
+      - uses: ./.github/actions/setup-ef
+
+      - name: Run EF migrations
+        env:
+          ConnectionStrings__DefaultConnection: ${{ secrets.connection-string }}
+        run: |
+          dotnet ef database update \
+            --project UtilityMenuSite.csproj \
+            --no-build \
+            -- --environment ${{ inputs.environment }}

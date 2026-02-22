@@ -1,0 +1,163 @@
+@page "/admin/blog/new"
+@page "/admin/blog/{PostId:guid}/edit"
+@rendermode InteractiveServer
+@layout AdminLayout
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
+@inject IBlogService BlogService
+@inject NavigationManager Nav
+
+<PageTitle>@(_isNew ? "New Post" : "Edit Post") — Admin</PageTitle>
+
+<div class="mb-3">
+    <a href="/admin/blog" class="text-decoration-none text-muted small"><i class="bi bi-arrow-left me-1"></i>Back to Blog</a>
+</div>
+<h2 class="fw-bold mb-4">@(_isNew ? "New Blog Post" : "Edit Post")</h2>
+
+@if (!string.IsNullOrWhiteSpace(_errorMessage))
+{
+    <AlertBanner Message="@_errorMessage" Type="danger" />
+}
+
+@if (_loading)
+{
+    <LoadingSpinner />
+}
+else
+{
+    <EditForm Model="_model" OnValidSubmit="HandleSave">
+        <DataAnnotationsValidator />
+
+        <div class="row g-3">
+            <div class="col-md-8">
+                <label class="form-label small fw-semibold">Title *</label>
+                <InputText @bind-Value="_model.Title" class="form-control" @oninput="GenerateSlug" />
+                <ValidationMessage For="() => _model.Title" class="text-danger small" />
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small fw-semibold">Slug *</label>
+                <InputText @bind-Value="_model.Slug" class="form-control" />
+                <ValidationMessage For="() => _model.Slug" class="text-danger small" />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label small fw-semibold">Category *</label>
+                <InputSelect @bind-Value="_model.CategoryId" class="form-select">
+                    <option value="">— Select category —</option>
+                    @foreach (var cat in _categories)
+                    {
+                        <option value="@cat.CategoryId">@cat.Name</option>
+                    }
+                </InputSelect>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label small fw-semibold">Cover Image URL</label>
+                <InputText @bind-Value="_model.CoverImageUrl" class="form-control" placeholder="https://..." />
+            </div>
+            <div class="col-12">
+                <label class="form-label small fw-semibold">Summary *</label>
+                <InputTextArea @bind-Value="_model.Summary" class="form-control" rows="2" maxlength="500" />
+                <ValidationMessage For="() => _model.Summary" class="text-danger small" />
+            </div>
+            <div class="col-12">
+                <label class="form-label small fw-semibold">Body (Markdown) *</label>
+                <InputTextArea @bind-Value="_model.Body" class="form-control font-monospace" rows="16" />
+                <ValidationMessage For="() => _model.Body" class="text-danger small" />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label small fw-semibold">Meta Title</label>
+                <InputText @bind-Value="_model.MetaTitle" class="form-control" />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label small fw-semibold">Meta Description</label>
+                <InputText @bind-Value="_model.MetaDescription" class="form-control" />
+            </div>
+            <div class="col-12">
+                <div class="d-flex gap-4">
+                    <div class="form-check">
+                        <InputCheckbox @bind-Value="_model.IsPublished" class="form-check-input" id="published" />
+                        <label class="form-check-label small" for="published">Published</label>
+                    </div>
+                    <div class="form-check">
+                        <InputCheckbox @bind-Value="_model.IsFeatured" class="form-check-input" id="featured" />
+                        <label class="form-check-label small" for="featured">Featured</label>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12">
+                <button type="submit" class="btn btn-primary me-2" disabled="@_saving">
+                    @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                    @(_isNew ? "Create Post" : "Save Changes")
+                </button>
+                <a href="/admin/blog" class="btn btn-outline-secondary">Cancel</a>
+            </div>
+        </div>
+    </EditForm>
+}
+
+@code {
+    [Parameter] public Guid PostId { get; set; }
+
+    private readonly Core.Models.CreateBlogPostDto _model = new();
+    private List<Data.Models.BlogCategory> _categories = new();
+    private string? _errorMessage;
+    private bool _loading = true;
+    private bool _saving;
+    private bool _isNew => PostId == Guid.Empty;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _categories = await BlogService.GetCategoriesAsync();
+
+        if (!_isNew)
+        {
+            var post = await BlogService.GetPostByIdAsync(PostId);
+            if (post is not null)
+            {
+                _model.Title = post.Title;
+                _model.Slug = post.Slug;
+                _model.CategoryId = post.CategoryId;
+                _model.Summary = post.Summary ?? "";
+                _model.Body = post.Body;
+                _model.CoverImageUrl = post.CoverImageUrl;
+                _model.IsPublished = post.IsPublished;
+                _model.IsFeatured = post.IsFeatured;
+                _model.MetaTitle = post.MetaTitle;
+                _model.MetaDescription = post.MetaDescription;
+            }
+        }
+        _loading = false;
+    }
+
+    private void GenerateSlug(ChangeEventArgs e)
+    {
+        if (_isNew && e.Value is string title)
+        {
+            _model.Slug = title.ToLowerInvariant()
+                .Replace(" ", "-")
+                .Replace("'", "")
+                .Replace(",", "")
+                .Replace(".", "")
+                .TrimStart('-');
+        }
+    }
+
+    private async Task HandleSave()
+    {
+        _saving = true;
+        _errorMessage = null;
+
+        try
+        {
+            if (_isNew)
+                await BlogService.CreatePostAsync(_model);
+            else
+                await BlogService.UpdatePostAsync(PostId, _model);
+
+            Nav.NavigateTo("/admin/blog");
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Failed to save post: {ex.Message}";
+        }
+        _saving = false;
+    }
+}

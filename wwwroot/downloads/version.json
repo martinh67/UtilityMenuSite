@@ -1,0 +1,14 @@
+{
+  "version": "1.0.0",
+  "releaseDate": "2026-02-22",
+  "downloadUrl": "https://github.com/martinhanna/UtilityMenu/releases/download/v1.0.0/UtilityMenu-Setup-1.0.0.exe",
+  "sha256": "",
+  "releaseNotesUrl": "/blog/release-1-0-0",
+  "minExcelVersion": "2016",
+  "changelog": [
+    "Initial public release",
+    "Core modules: GetLastRow, GetLastColumn, UnhideRows",
+    "Pro modules: AdvancedData, BulkOperations, DataExport, SqlBuilder",
+    "Licence activation and machine management"
+  ]
+}

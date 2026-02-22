@@ -1,0 +1,35 @@
+@if (TotalPages > 1)
+{
+    <nav aria-label="Page navigation">
+        <ul class="pagination justify-content-center">
+            <li class="page-item @(!HasPrevious ? "disabled" : "")">
+                <button class="page-link" @onclick="() => OnPageChanged.InvokeAsync(CurrentPage - 1)" disabled="@(!HasPrevious)">
+                    <i class="bi bi-chevron-left"></i>
+                </button>
+            </li>
+            @for (int i = StartPage; i <= EndPage; i++)
+            {
+                var pageNum = i;
+                <li class="page-item @(pageNum == CurrentPage ? "active" : "")">
+                    <button class="page-link" @onclick="() => OnPageChanged.InvokeAsync(pageNum)">@pageNum</button>
+                </li>
+            }
+            <li class="page-item @(!HasNext ? "disabled" : "")">
+                <button class="page-link" @onclick="() => OnPageChanged.InvokeAsync(CurrentPage + 1)" disabled="@(!HasNext)">
+                    <i class="bi bi-chevron-right"></i>
+                </button>
+            </li>
+        </ul>
+    </nav>
+}
+
+@code {
+    [Parameter] public int CurrentPage { get; set; } = 1;
+    [Parameter] public int TotalPages { get; set; }
+    [Parameter] public EventCallback<int> OnPageChanged { get; set; }
+
+    private bool HasPrevious => CurrentPage > 1;
+    private bool HasNext => CurrentPage < TotalPages;
+    private int StartPage => Math.Max(1, CurrentPage - 2);
+    private int EndPage => Math.Min(TotalPages, CurrentPage + 2);
+}

@@ -1,0 +1,49 @@
+name: Deploy to Azure App Service (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+      app-name:
+        required: true
+        type: string
+      artifact-name:
+        required: false
+        default: 'app'
+        type: string
+      slot:
+        required: false
+        default: 'production'
+        type: string
+    secrets:
+      azure-credentials:
+        required: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.artifact-name }}
+          path: ./publish
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.azure-credentials }}
+
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ inputs.app-name }}
+          slot-name: ${{ inputs.slot }}
+          package: ./publish
+
+      - name: Azure logout
+        if: always()
+        run: az logout

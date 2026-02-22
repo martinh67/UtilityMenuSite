@@ -1,0 +1,47 @@
+name: Build (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      configuration:
+        description: 'Build configuration'
+        required: false
+        default: 'Release'
+        type: string
+      upload-artifact:
+        description: 'Upload build artifact'
+        required: false
+        default: false
+        type: boolean
+      artifact-name:
+        description: 'Artifact name'
+        required: false
+        default: 'app'
+        type: string
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup-dotnet
+
+      - name: Build
+        run: dotnet build --no-restore -c ${{ inputs.configuration }}
+
+      - name: Publish
+        if: ${{ inputs.upload-artifact }}
+        run: |
+          dotnet publish UtilityMenuSite.csproj \
+            --no-build \
+            -c ${{ inputs.configuration }} \
+            -o ./publish
+
+      - name: Upload artifact
+        if: ${{ inputs.upload-artifact }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact-name }}
+          path: ./publish
+          retention-days: 7

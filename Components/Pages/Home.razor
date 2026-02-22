@@ -1,0 +1,184 @@
+@page "/"
+@using UtilityMenuSite.Core.Interfaces
+@using UtilityMenuSite.Core.Models
+@using UtilityMenuSite.Data.Models
+@inject IBlogService BlogService
+@inject IVersionManifestService VersionService
+
+<PageTitle>UtilityMenu — Excel Add-in for Power Users</PageTitle>
+<HeadContent>
+    <meta name="description" content="UtilityMenu is a powerful Excel add-in with core and Pro modules to supercharge your spreadsheet workflow." />
+    <meta property="og:title" content="UtilityMenu — Excel Add-in for Power Users" />
+    <meta property="og:description" content="Supercharge Excel with UtilityMenu. Core tools free, Pro modules available." />
+    <meta property="og:type" content="website" />
+    <link rel="canonical" href="https://utilitymenu.com/" />
+</HeadContent>
+
+<!-- Hero Section -->
+<section class="hero-section py-6 bg-gradient-primary text-white">
+    <div class="container py-5">
+        <div class="row align-items-center g-5">
+            <div class="col-lg-6">
+                <span class="badge bg-light text-primary mb-3 px-3 py-2">Free Excel Add-in</span>
+                <h1 class="display-4 fw-bold mb-3">
+                    Supercharge Your Excel Workflow
+                </h1>
+                <p class="lead mb-4 text-white-75">
+                    UtilityMenu brings powerful core tools and Pro modules directly into your Excel ribbon.
+                    From data utilities to SQL building — all in one place.
+                </p>
+                <div class="d-flex flex-wrap gap-3">
+                    <a href="/downloads/UtilityMenuInstaller.exe" class="btn btn-light btn-lg px-4">
+                        <i class="bi bi-download me-2"></i>Get UtilityMenu Free
+                        @if (_version is not null)
+                        {
+                            <span class="badge bg-primary ms-2">v@(_version.Version)</span>
+                        }
+                    </a>
+                    <a href="/pricing" class="btn btn-outline-light btn-lg px-4">
+                        View Pro Plans <i class="bi bi-arrow-right ms-2"></i>
+                    </a>
+                </div>
+            </div>
+            <div class="col-lg-6 text-center">
+                <div class="hero-screenshot p-3 bg-white bg-opacity-10 rounded-3">
+                    <img src="/img/excel-ribbon-screenshot.png" alt="UtilityMenu Excel Ribbon" class="img-fluid rounded shadow" onerror="this.style.display='none'" />
+                    <div class="p-4 bg-dark bg-opacity-25 rounded text-center" style="min-height:200px; display:flex; align-items:center; justify-content:center;">
+                        <div>
+                            <i class="bi bi-grid-3x3-gap-fill display-1 text-white-50 mb-3 d-block"></i>
+                            <span class="text-white-75">UtilityMenu Ribbon</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Features Grid -->
+<section class="py-6 bg-white">
+    <div class="container py-5">
+        <div class="text-center mb-5">
+            <h2 class="fw-bold">Everything You Need in Your Ribbon</h2>
+            <p class="text-muted lead">Core tools are free. Pro modules unlock advanced capabilities.</p>
+        </div>
+        <div class="row g-4">
+            @foreach (var feature in _features)
+            {
+                <div class="col-md-4">
+                    <div class="d-flex gap-3">
+                        <div class="flex-shrink-0">
+                            <div class="bg-primary bg-opacity-10 rounded-2 p-2 d-inline-flex">
+                                <i class="bi @feature.Icon text-primary fs-4"></i>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="d-flex align-items-center gap-2 mb-1">
+                                <h5 class="fw-semibold mb-0">@feature.Title</h5>
+                                <span class="badge @(feature.Tier == "Pro" ? "bg-success" : "bg-secondary") small">@feature.Tier</span>
+                            </div>
+                            <p class="text-muted small mb-0">@feature.Description</p>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</section>
+
+<!-- Pro Banner -->
+<section class="py-5 bg-primary text-white">
+    <div class="container py-4">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h2 class="fw-bold mb-2">Unlock Pro Modules</h2>
+                <p class="mb-0 text-white-75">
+                    Advanced Data Tools, Bulk Operations, Data Export, SQL Builder — from just &pound;5/month.
+                    Up to 2 machines per licence.
+                </p>
+            </div>
+            <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                <a href="/pricing" class="btn btn-light btn-lg px-5 fw-semibold">
+                    Subscribe Now <i class="bi bi-arrow-right ms-2"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Blog Teaser -->
+@if (_latestPosts.Any())
+{
+    <section class="py-6 bg-light">
+        <div class="container py-5">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="fw-bold mb-0">Latest from the Blog</h2>
+                <a href="/blog" class="btn btn-outline-primary">View All Posts</a>
+            </div>
+            <div class="row g-4">
+                @foreach (var post in _latestPosts)
+                {
+                    <div class="col-md-4">
+                        <div class="card h-100 border-0 shadow-sm">
+                            @if (!string.IsNullOrWhiteSpace(post.CoverImageUrl))
+                            {
+                                <img src="@post.CoverImageUrl" class="card-img-top" alt="@post.Title" style="height:180px; object-fit:cover;" />
+                            }
+                            <div class="card-body">
+                                <span class="badge bg-primary-subtle text-primary mb-2">@post.Category.Name</span>
+                                <h5 class="card-title fw-semibold">@post.Title</h5>
+                                <p class="card-text text-muted small">@post.Summary</p>
+                            </div>
+                            <div class="card-footer bg-transparent border-0 d-flex justify-content-between align-items-center">
+                                <small class="text-muted">@post.PublishedAt?.ToString("MMM d, yyyy")</small>
+                                <a href="/blog/@post.Slug" class="btn btn-sm btn-link p-0 text-primary">Read more <i class="bi bi-arrow-right"></i></a>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </section>
+}
+
+<!-- Download Section -->
+<section class="py-6 bg-white">
+    <div class="container py-5 text-center">
+        <i class="bi bi-download display-4 text-primary mb-3 d-block"></i>
+        <h2 class="fw-bold mb-3">Ready to Get Started?</h2>
+        <p class="lead text-muted mb-4">
+            Download UtilityMenu for free and start using core modules immediately.
+            No account required for the free tier.
+        </p>
+        <a href="/downloads/UtilityMenuInstaller.exe" class="btn btn-primary btn-lg px-5">
+            <i class="bi bi-windows me-2"></i>Download for Windows
+        </a>
+        <p class="text-muted small mt-3">Requires Microsoft Excel 2016 or later. Windows only.</p>
+    </div>
+</section>
+
+@code {
+    private List<BlogPost> _latestPosts = new();
+    private VersionManifest? _version;
+
+    private readonly List<FeatureInfo> _features =
+    [
+        new("Get Last Row", "Instantly find the last used row in any column.", "bi-arrow-down-short", "Free"),
+        new("Get Last Column", "Determine the last column with data quickly.", "bi-arrow-right-short", "Free"),
+        new("Unhide Rows", "Reveal all hidden rows in the active sheet.", "bi-eye-fill", "Free"),
+        new("Advanced Data Tools", "Powerful data manipulation and analysis utilities.", "bi-table", "Pro"),
+        new("Bulk Operations", "Perform bulk actions across sheets and workbooks.", "bi-lightning-charge-fill", "Pro"),
+        new("Data Export", "Export to multiple formats with a single click.", "bi-file-earmark-arrow-up", "Pro"),
+        new("SQL Builder", "Generate SQL from your Excel data effortlessly.", "bi-database-fill-gear", "Pro"),
+        new("More Coming", "New modules added regularly for Pro subscribers.", "bi-plus-circle-dotted", "Pro"),
+        new("Ribbon Integration", "All tools live directly in your Excel ribbon.", "bi-layout-three-columns", "Free")
+    ];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _latestPosts = await BlogService.GetLatestPostsAsync(3);
+        _version = await VersionService.GetLatestAsync();
+    }
+
+    private record FeatureInfo(string Title, string Description, string Icon, string Tier);
+}

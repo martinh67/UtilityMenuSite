@@ -1,0 +1,14 @@
+<div class="d-flex justify-content-center align-items-center py-5">
+    <div class="spinner-border text-primary" role="status" style="width:@Size; height:@Size;">
+        <span class="visually-hidden">Loading...</span>
+    </div>
+    @if (!string.IsNullOrWhiteSpace(Message))
+    {
+        <span class="ms-3 text-muted">@Message</span>
+    }
+</div>
+
+@code {
+    [Parameter] public string Size { get; set; } = "3rem";
+    [Parameter] public string? Message { get; set; }
+}

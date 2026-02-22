@@ -1,0 +1,11 @@
+@inherits LayoutComponentBase
+
+<div class="dashboard-layout d-flex">
+    <DashboardSidebar />
+    <div class="dashboard-main flex-grow-1">
+        <DashboardNavBar />
+        <main class="p-4">
+            @Body
+        </main>
+    </div>
+</div>

@@ -1,0 +1,118 @@
+@page "/contact"
+@rendermode InteractiveServer
+@inject IContactService ContactService
+@inject IHttpContextAccessor HttpContextAccessor
+
+<PageTitle>Contact — UtilityMenu</PageTitle>
+<HeadContent>
+    <meta name="description" content="Contact UtilityMenu support for technical help, billing enquiries, or feature requests." />
+</HeadContent>
+
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-7">
+            <h1 class="fw-bold mb-1">Get in Touch</h1>
+            <p class="text-muted mb-4">We typically respond within 1-2 business days.</p>
+
+            @if (_submitted)
+            {
+                <AlertBanner Message="Thank you! Your message has been sent. We'll get back to you shortly." Type="success" Dismissible="false" />
+            }
+            else
+            {
+                @if (!string.IsNullOrWhiteSpace(_errorMessage))
+                {
+                    <AlertBanner Message="@_errorMessage" Type="danger" />
+                }
+
+                <EditForm Model="_model" OnValidSubmit="HandleSubmit">
+                    <DataAnnotationsValidator />
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-semibold">Your Name</label>
+                            <InputText @bind-Value="_model.Name" class="form-control" placeholder="John Smith" />
+                            <ValidationMessage For="() => _model.Name" class="text-danger small" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-semibold">Email Address</label>
+                            <InputText @bind-Value="_model.Email" type="email" class="form-control" placeholder="you@example.com" />
+                            <ValidationMessage For="() => _model.Email" class="text-danger small" />
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Subject</label>
+                        <InputSelect @bind-Value="_model.Subject" class="form-select">
+                            <option value="">— Select a subject —</option>
+                            <option value="General Enquiry">General Enquiry</option>
+                            <option value="Technical Support">Technical Support</option>
+                            <option value="Billing">Billing</option>
+                            <option value="Feature Request">Feature Request</option>
+                            <option value="Bug Report">Bug Report</option>
+                        </InputSelect>
+                        <ValidationMessage For="() => _model.Subject" class="text-danger small" />
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label small fw-semibold">Message</label>
+                        <InputTextArea @bind-Value="_model.Message" class="form-control" rows="6"
+                                       placeholder="Describe your question or issue in detail..." />
+                        <ValidationMessage For="() => _model.Message" class="text-danger small" />
+                    </div>
+
+                    <!-- Honeypot field (hidden from real users) -->
+                    <div style="display:none;">
+                        <InputText @bind-Value="_model.Website" />
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-lg w-100" disabled="@_submitting">
+                        @if (_submitting)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                        }
+                        <i class="bi bi-send me-2"></i>Send Message
+                    </button>
+                </EditForm>
+            }
+        </div>
+        <div class="col-md-3 offset-md-1 pt-5">
+            <h5 class="fw-semibold mb-3">Other ways to reach us</h5>
+            <div class="d-flex align-items-center gap-2 mb-3 text-muted">
+                <i class="bi bi-envelope text-primary fs-5"></i>
+                <span class="small">support@utilitymenu.com</span>
+            </div>
+            <div class="d-flex align-items-center gap-2 mb-3 text-muted">
+                <i class="bi bi-github text-primary fs-5"></i>
+                <a href="https://github.com/martinh67/UtilityMenu/issues" target="_blank" class="small text-decoration-none text-muted">GitHub Issues</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private readonly Core.Models.ContactFormDto _model = new();
+    private bool _submitted;
+    private bool _submitting;
+    private string? _errorMessage;
+
+    private async Task HandleSubmit()
+    {
+        _submitting = true;
+        _errorMessage = null;
+
+        var ip = HttpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString();
+        var success = await ContactService.SubmitAsync(_model, ip);
+
+        if (!success)
+        {
+            _errorMessage = "Too many submissions from your connection. Please try again later.";
+        }
+        else
+        {
+            _submitted = true;
+        }
+
+        _submitting = false;
+    }
+}
