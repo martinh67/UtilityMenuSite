@@ -56,6 +56,49 @@ public class UserService : IUserService
         return user;
     }
 
+    public async Task<Data.Models.User> RegisterFromIdentityAsync(string email, string identityId, CancellationToken ct = default)
+    {
+        var existing = await _userRepo.GetByEmailAsync(email, ct);
+        if (existing is not null)
+        {
+            if (string.IsNullOrWhiteSpace(existing.IdentityId))
+            {
+                existing.IdentityId = identityId;
+                await _userRepo.UpdateAsync(existing, ct);
+            }
+            return existing;
+        }
+
+        var user = new Data.Models.User
+        {
+            Email = email,
+            IdentityId = identityId,
+            ApiToken = ApiTokenGenerator.Generate(),
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+
+        await _userRepo.CreateAsync(user, ct);
+        _logger.LogInformation("Registered new user {Email} from identity provider", email);
+        return user;
+    }
+
+    public async Task UpdateProfileAsync(Guid userId, string? displayName, string? organisation, string? jobRole, string? usageInterests, CancellationToken ct = default)
+    {
+        var user = await _userRepo.GetByIdAsync(userId, ct);
+        if (user is null) throw new InvalidOperationException("User not found");
+
+        user.DisplayName = displayName;
+        user.Organisation = organisation;
+        user.JobRole = jobRole;
+        user.UsageInterests = usageInterests;
+        user.ProfileCompletedAt = DateTime.UtcNow;
+        await _userRepo.UpdateAsync(user, ct);
+
+        _logger.LogInformation("Updated profile for user {UserId}", userId);
+    }
+
     public async Task<string> RegenerateApiTokenAsync(Guid userId, CancellationToken ct = default)
     {
         var user = await _userRepo.GetByIdAsync(userId, ct);

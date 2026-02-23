@@ -1,0 +1,178 @@
+@page "/download"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Identity
+@inject AuthenticationStateProvider AuthProvider
+@inject IVersionManifestService VersionService
+@inject IUserService UserService
+@inject UserManager<Data.Models.ApplicationUser> UserManager
+@inject IJSRuntime JS
+@inject NavigationManager Nav
+
+<PageTitle>Download UtilityMenu — Free Excel Add-in</PageTitle>
+<HeadContent>
+    <meta name="description" content="Download UtilityMenu, the free Excel add-in for power users. Core modules free, Pro modules available." />
+</HeadContent>
+
+<div class="container py-6">
+    <div class="row justify-content-center">
+        <div class="col-md-7 text-center">
+
+            <AuthorizeView>
+                <Authorized>
+                    <!-- Authenticated: download auto-triggers on render -->
+                    <div class="mb-4">
+                        <div class="bg-primary bg-opacity-10 rounded-circle d-inline-flex p-4 mb-3">
+                            <i class="bi bi-download text-primary display-4"></i>
+                        </div>
+                        <h1 class="fw-bold">Your download is starting</h1>
+                        <p class="lead text-muted">
+                            UtilityMenu @(_version is not null ? $"v{_version.Version}" : "") for Windows is downloading now.
+                        </p>
+                        @if (!_downloadStarted)
+                        {
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Starting download...</span>
+                            </div>
+                        }
+                    </div>
+
+                    <div class="card border-0 shadow-sm p-4 mb-4 text-start">
+                        <h5 class="fw-bold mb-3">Getting started</h5>
+                        <div class="d-flex align-items-start gap-3 mb-3">
+                            <div class="bg-primary bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width:36px;height:36px;">
+                                <strong class="text-primary">1</strong>
+                            </div>
+                            <div>
+                                <strong>Run the installer</strong>
+                                <p class="text-muted small mb-0">Open the downloaded file and follow the setup wizard.</p>
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-start gap-3 mb-3">
+                            <div class="bg-primary bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width:36px;height:36px;">
+                                <strong class="text-primary">2</strong>
+                            </div>
+                            <div>
+                                <strong>Open Excel</strong>
+                                <p class="text-muted small mb-0">UtilityMenu will appear in your Excel ribbon after installation.</p>
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-start gap-3">
+                            <div class="bg-primary bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width:36px;height:36px;">
+                                <strong class="text-primary">3</strong>
+                            </div>
+                            <div>
+                                <strong>Start using UtilityMenu</strong>
+                                <p class="text-muted small mb-0">Core modules are free and ready immediately. Upgrade to Pro anytime.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-3 justify-content-center flex-wrap mb-4">
+                        <button class="btn btn-outline-primary" @onclick="TriggerDownload">
+                            <i class="bi bi-download me-2"></i>Download again
+                        </button>
+                        <a href="/dashboard" class="btn btn-primary">Go to Dashboard</a>
+                    </div>
+
+                    @if (_showProfilePrompt)
+                    {
+                        <div class="alert alert-info text-start" role="alert">
+                            <div class="d-flex align-items-start gap-3">
+                                <i class="bi bi-person-badge fs-4 text-info flex-shrink-0 mt-1"></i>
+                                <div class="flex-grow-1">
+                                    <strong>Complete your profile</strong>
+                                    <p class="mb-2 small text-muted">
+                                        Help us tailor module recommendations and release notes to your role.
+                                    </p>
+                                    <a href="/account/complete-profile?returnUrl=/dashboard" class="btn btn-sm btn-outline-info me-2">
+                                        Complete Profile
+                                    </a>
+                                    <button class="btn btn-sm btn-link text-muted p-0" @onclick="() => _showProfilePrompt = false">
+                                        Skip for now
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </Authorized>
+
+                <NotAuthorized>
+                    <!-- Unauthenticated: explain account requirement and offer sign-in/register -->
+                    <div class="mb-4">
+                        <div class="bg-primary bg-opacity-10 rounded-circle d-inline-flex p-4 mb-3">
+                            <i class="bi bi-download text-primary display-4"></i>
+                        </div>
+                        <h1 class="fw-bold">Download UtilityMenu</h1>
+                        <p class="lead text-muted mb-2">
+                            The Excel add-in for power users — free core modules, no credit card required.
+                        </p>
+                    </div>
+
+                    <div class="alert alert-light border mb-4 text-start">
+                        <div class="d-flex gap-3">
+                            <i class="bi bi-info-circle-fill text-primary flex-shrink-0 mt-1 fs-5"></i>
+                            <div>
+                                <strong>A free account is required to download</strong>
+                                <p class="mb-0 small text-muted">
+                                    We use accounts to manage your modules, updates, and licensing.
+                                    Sign up takes under a minute — no credit card needed.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-3 justify-content-center flex-wrap mb-3">
+                        <a href="/account/register?returnUrl=/download" class="btn btn-primary btn-lg px-4">
+                            <i class="bi bi-person-plus me-2"></i>Create Free Account
+                        </a>
+                        <a href="/account/login?returnUrl=/download" class="btn btn-outline-primary btn-lg px-4">
+                            Sign In
+                        </a>
+                    </div>
+                    <p class="text-muted small">Requires Microsoft Excel 2016 or later. Windows only.</p>
+                </NotAuthorized>
+            </AuthorizeView>
+
+        </div>
+    </div>
+</div>
+
+@code {
+    private bool _downloadStarted;
+    private bool _showProfilePrompt;
+    private Core.Models.VersionManifest? _version;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _version = await VersionService.GetLatestAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        var authState = await AuthProvider.GetAuthenticationStateAsync();
+        if (authState.User.Identity?.IsAuthenticated != true) return;
+
+        await TriggerDownload();
+
+        var identityUser = await UserManager.GetUserAsync(authState.User);
+        if (identityUser is not null)
+        {
+            var user = await UserService.GetByIdentityIdAsync(identityUser.Id);
+            if (user is not null && !user.ProfileCompletedAt.HasValue)
+            {
+                _showProfilePrompt = true;
+                StateHasChanged();
+            }
+        }
+    }
+
+    private async Task TriggerDownload()
+    {
+        _downloadStarted = true;
+        StateHasChanged();
+        await JS.InvokeVoidAsync("triggerFileDownload", "/api/download/installer");
+    }
+}

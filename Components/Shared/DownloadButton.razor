@@ -1,0 +1,21 @@
+@* Auth-aware download CTA. Always routes through /download which handles
+   the sign-in gate and download tracking automatically. *@
+
+<a href="/download" class="@CssClass">
+    <i class="bi bi-download me-2"></i>@Label
+    @if (!string.IsNullOrWhiteSpace(Version))
+    {
+        <span class="badge bg-dark ms-2">v@Version</span>
+    }
+</a>
+
+@code {
+    /// <summary>Button label text.</summary>
+    [Parameter] public string Label { get; set; } = "Get UtilityMenu Free";
+
+    /// <summary>Bootstrap button CSS classes.</summary>
+    [Parameter] public string CssClass { get; set; } = "btn btn-primary btn-lg";
+
+    /// <summary>Optional version string to display as a badge.</summary>
+    [Parameter] public string? Version { get; set; }
+}

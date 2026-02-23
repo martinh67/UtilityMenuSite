@@ -25,6 +25,15 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(u => u.DisplayName)
             .HasMaxLength(100);
 
+        builder.Property(u => u.Organisation)
+            .HasMaxLength(200);
+
+        builder.Property(u => u.JobRole)
+            .HasMaxLength(100);
+
+        builder.Property(u => u.UsageInterests)
+            .HasMaxLength(500);
+
         builder.Property(u => u.ExternalId)
             .HasMaxLength(200);
 

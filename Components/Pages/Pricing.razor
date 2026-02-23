@@ -30,9 +30,9 @@
                 Price="£0"
                 Period="month"
                 Description="Core modules for everyday Excel tasks."
-                Features='@(new List<string> { "Get Last Row", "Get Last Column", "Unhide Rows", "Excel ribbon integration", "No account required" })'
+                Features='@(new List<string> { "Get Last Row", "Get Last Column", "Unhide Rows", "Excel ribbon integration", "Free account required" })'
                 CtaLabel="Download Free"
-                CtaHref="/downloads/UtilityMenuInstaller.exe" />
+                CtaHref="/download" />
         </div>
         <div class="col-md-5">
             <PricingCard
@@ -124,7 +124,7 @@
         new("How many machines can I use with Pro?", "Each Pro licence supports up to 2 active machines. You can deactivate a machine from your dashboard to activate a new one."),
         new("Can I cancel at any time?", "Yes, you can cancel your subscription at any time from your billing dashboard. You'll retain access until the end of the current period."),
         new("Is there a refund policy?", "We offer a 14-day refund for new subscriptions. Contact support within 14 days of purchase."),
-        new("Do I need an account to use the free version?", "No account is required for core modules. An account is needed to manage your Pro licence and devices.")
+        new("Do I need an account to use the free version?", "Yes — a free account is required to download UtilityMenu. Accounts let you manage your modules, receive updates, and handle licensing in one place. Sign up takes under a minute and no credit card is needed.")
     ];
 
     private async Task HandleSubscribeClick()

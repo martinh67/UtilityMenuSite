@@ -6,6 +6,10 @@ public class User
     public string IdentityId { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public string? DisplayName { get; set; }
+    public string? Organisation { get; set; }
+    public string? JobRole { get; set; }
+    public string? UsageInterests { get; set; }
+    public DateTime? ProfileCompletedAt { get; set; }
     public string? ExternalId { get; set; }
     public string ApiToken { get; set; } = string.Empty;
     public bool IsActive { get; set; } = true;
