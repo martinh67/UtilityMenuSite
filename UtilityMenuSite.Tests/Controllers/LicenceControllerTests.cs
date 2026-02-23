@@ -8,6 +8,7 @@ using UtilityMenuSite.Controllers;
 using UtilityMenuSite.Core.Interfaces;
 using UtilityMenuSite.Core.Models;
 using UtilityMenuSite.Data.Models;
+using UtilityMenuSite.Services.Licensing;
 
 namespace UtilityMenuSite.Tests.Controllers;
 
@@ -127,7 +128,7 @@ public class LicenceControllerTests
         var request = new ActivateMachineRequest
         {
             LicenceKey = "UMENU-TEST-TEST-TEST",
-            MachineId = Guid.NewGuid(),
+            MachineFingerprint = "machine-fingerprint-1",
             MachineName = "MACHINE"
         };
 
@@ -145,7 +146,7 @@ public class LicenceControllerTests
         var request = new ActivateMachineRequest
         {
             LicenceKey = "UMENU-TEST-TEST-TEST",
-            MachineId = Guid.NewGuid(),
+            MachineFingerprint = "machine-fingerprint-2",
             MachineName = "MACHINE"
         };
 
@@ -158,7 +159,7 @@ public class LicenceControllerTests
     {
         _userServiceMock
             .Setup(u => u.GetByApiTokenAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new User { Id = Guid.NewGuid() });
+            .ReturnsAsync(new User { UserId = Guid.NewGuid() });
 
         _licenceServiceMock
             .Setup(s => s.ActivateMachineAsync(It.IsAny<ActivateMachineRequest>(), It.IsAny<CancellationToken>()))
@@ -167,7 +168,7 @@ public class LicenceControllerTests
         var request = new ActivateMachineRequest
         {
             LicenceKey = "UMENU-TEST-TEST-TEST",
-            MachineId = Guid.NewGuid(),
+            MachineFingerprint = "machine-fingerprint-3",
             MachineName = "MACHINE"
         };
 
@@ -185,7 +186,7 @@ public class LicenceControllerTests
 
         _userServiceMock
             .Setup(u => u.GetByApiTokenAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new User { Id = Guid.NewGuid() });
+            .ReturnsAsync(new User { UserId = Guid.NewGuid() });
 
         _licenceServiceMock
             .Setup(s => s.ActivateMachineAsync(It.IsAny<ActivateMachineRequest>(), It.IsAny<CancellationToken>()))
@@ -200,7 +201,7 @@ public class LicenceControllerTests
         var request = new ActivateMachineRequest
         {
             LicenceKey = "UMENU-TEST-TEST-TEST",
-            MachineId = machineId,
+            MachineFingerprint = "machine-fingerprint-4",
             MachineName = "MACHINE"
         };
 

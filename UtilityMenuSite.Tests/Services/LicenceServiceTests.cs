@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Moq;
 using Xunit;
@@ -13,15 +14,16 @@ namespace UtilityMenuSite.Tests.Services;
 public class LicenceServiceTests
 {
     private readonly Mock<ILicenceRepository> _repoMock = new();
+    private readonly Mock<ILogger<LicenceService>> _loggerMock = new();
     private readonly LicensingSettings _settings = new()
     {
-        HmacSigningKey = "test-hmac-key-that-is-long-enough-for-sha256",
+        HmacSigningKey = "dGVzdC1obWFjLWtleS10aGF0LWlzLWxvbmctZW5vdWdoLWZvci1zaGEyNTY=",
         StalenessWindowDays = 7,
         GracePeriodDays = 7
     };
 
     private LicenceService CreateSut() =>
-        new(_repoMock.Object, Options.Create(_settings));
+        new(_repoMock.Object, Options.Create(_settings), _loggerMock.Object);
 
     // ── ValidateLicenceAsync ────────────────────────────────
 
@@ -35,7 +37,7 @@ public class LicenceServiceTests
         var result = await sut.ValidateLicenceAsync("UMENU-XXXX-XXXX-XXXX", CancellationToken.None);
 
         result.IsValid.Should().BeFalse();
-        result.Reason.Should().Be("Licence not found");
+        result.Reason.Should().Be("not_found");
     }
 
     [Fact]
@@ -48,7 +50,7 @@ public class LicenceServiceTests
         var result = await CreateSut().ValidateLicenceAsync(licence.LicenceKey, CancellationToken.None);
 
         result.IsValid.Should().BeFalse();
-        result.Reason.Should().Be("Licence is not active");
+        result.Reason.Should().Be("inactive");
     }
 
     [Fact]
@@ -61,7 +63,7 @@ public class LicenceServiceTests
         var result = await CreateSut().ValidateLicenceAsync(licence.LicenceKey, CancellationToken.None);
 
         result.IsValid.Should().BeFalse();
-        result.Reason.Should().Be("Licence has expired");
+        result.Reason.Should().Be("expired");
     }
 
     [Fact]
@@ -86,11 +88,11 @@ public class LicenceServiceTests
         var licence = BuildLicence();
         licence.LicenceModules =
         [
-            new LicenceModule { Module = new Module { Name = "GetLastRow" } },
-            new LicenceModule { Module = new Module { Name = "GetLastColumn" } }
+            new LicenceModule { Module = new Module { ModuleName = "GetLastRow", IsActive = true } },
+            new LicenceModule { Module = new Module { ModuleName = "GetLastColumn", IsActive = true } }
         ];
 
-        _repoMock.Setup(r => r.GetByKeyWithModulesAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+        _repoMock.Setup(r => r.GetByKeyAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
                  .ReturnsAsync(licence);
 
         var result = await CreateSut().GetEntitlementsAsync(licence.LicenceKey, CancellationToken.None);
@@ -103,7 +105,7 @@ public class LicenceServiceTests
     [Fact]
     public async Task GetEntitlements_WhenNotFound_ReturnsNull()
     {
-        _repoMock.Setup(r => r.GetByKeyWithModulesAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+        _repoMock.Setup(r => r.GetByKeyAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
                  .ReturnsAsync((Licence?)null);
 
         var result = await CreateSut().GetEntitlementsAsync("UMENU-FAKE-FAKE-FAKE", CancellationToken.None);
@@ -117,15 +119,18 @@ public class LicenceServiceTests
     public async Task ActivateMachine_WhenSeatLimitExceeded_ThrowsSeatLimitExceededException()
     {
         var licence = BuildLicence(maxActivations: 1);
-        licence.Machines = [new Machine { IsActive = true }];
 
-        _repoMock.Setup(r => r.GetByKeyWithMachinesAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+        _repoMock.Setup(r => r.GetByKeyAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
                  .ReturnsAsync(licence);
+        _repoMock.Setup(r => r.GetMachineAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                 .ReturnsAsync((Machine?)null);
+        _repoMock.Setup(r => r.GetActiveMachineCountAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                 .ReturnsAsync(1);
 
         var request = new ActivateMachineRequest
         {
             LicenceKey = licence.LicenceKey,
-            MachineId = Guid.NewGuid(),
+            MachineFingerprint = "new-machine-fingerprint",
             MachineName = "NEW-MACHINE"
         };
 
@@ -141,43 +146,49 @@ public class LicenceServiceTests
         var licence = BuildLicence(maxActivations: 3);
         var existingMachine = new Machine
         {
-            Id = machineId,
+            MachineId = machineId,
             IsActive = true,
-            ActivatedAt = DateTime.UtcNow.AddDays(-5)
+            FirstSeenAt = DateTime.UtcNow.AddDays(-5)
         };
-        licence.Machines = [existingMachine];
 
-        _repoMock.Setup(r => r.GetByKeyWithMachinesAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+        _repoMock.Setup(r => r.GetByKeyAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
                  .ReturnsAsync(licence);
+        _repoMock.Setup(r => r.GetMachineAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                 .ReturnsAsync(existingMachine);
+        _repoMock.Setup(r => r.GetActiveMachineCountAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                 .ReturnsAsync(1);
 
         var request = new ActivateMachineRequest
         {
             LicenceKey = licence.LicenceKey,
-            MachineId = machineId,
+            MachineFingerprint = "existing-fingerprint",
             MachineName = "SAME-MACHINE"
         };
 
         var result = await CreateSut().ActivateMachineAsync(request, CancellationToken.None);
 
         result.MachineId.Should().Be(machineId);
-        _repoMock.Verify(r => r.AddMachineAsync(It.IsAny<Machine>(), It.IsAny<CancellationToken>()), Times.Never);
+        _repoMock.Verify(r => r.CreateMachineAsync(It.IsAny<Machine>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
     public async Task ActivateMachine_WhenSlotAvailable_AddsNewMachine()
     {
         var licence = BuildLicence(maxActivations: 3);
-        licence.Machines = [];
 
-        _repoMock.Setup(r => r.GetByKeyWithMachinesAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+        _repoMock.Setup(r => r.GetByKeyAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
                  .ReturnsAsync(licence);
-        _repoMock.Setup(r => r.AddMachineAsync(It.IsAny<Machine>(), It.IsAny<CancellationToken>()))
-                 .Returns(Task.CompletedTask);
+        _repoMock.Setup(r => r.GetMachineAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                 .ReturnsAsync((Machine?)null);
+        _repoMock.Setup(r => r.GetActiveMachineCountAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                 .ReturnsAsync(0);
+        _repoMock.Setup(r => r.CreateMachineAsync(It.IsAny<Machine>(), It.IsAny<CancellationToken>()))
+                 .ReturnsAsync(new Machine());
 
         var request = new ActivateMachineRequest
         {
             LicenceKey = licence.LicenceKey,
-            MachineId = Guid.NewGuid(),
+            MachineFingerprint = "new-machine-fingerprint",
             MachineName = "DESKTOP-NEW"
         };
 
@@ -185,7 +196,7 @@ public class LicenceServiceTests
 
         result.ActiveCount.Should().Be(1);
         result.MaxActivations.Should().Be(3);
-        _repoMock.Verify(r => r.AddMachineAsync(It.IsAny<Machine>(), It.IsAny<CancellationToken>()), Times.Once);
+        _repoMock.Verify(r => r.CreateMachineAsync(It.IsAny<Machine>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     // ── Helpers ────────────────────────────────────────────
@@ -197,7 +208,7 @@ public class LicenceServiceTests
     {
         return new Licence
         {
-            Id = Guid.NewGuid(),
+            LicenceId = Guid.NewGuid(),
             LicenceKey = "UMENU-TEST-TEST-TEST",
             LicenceType = "pro",
             IsActive = isActive,
