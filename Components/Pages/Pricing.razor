@@ -5,11 +5,14 @@
 @inject AuthenticationStateProvider AuthProvider
 
 <PageTitle>Pricing — UtilityMenu</PageTitle>
+<HeadContent>
+    <meta name="description" content="UtilityMenu pricing: free Core modules, Pro subscription, and bespoke Custom Modules built to your exact requirements." />
+</HeadContent>
 
 <div class="container py-6">
     <div class="text-center mb-5">
         <h1 class="display-5 fw-bold">Simple, Honest Pricing</h1>
-        <p class="lead text-muted">Start free. Upgrade when you need more power.</p>
+        <p class="lead text-muted">Start free. Upgrade when you need more power. Or go fully bespoke.</p>
 
         <!-- Billing Toggle -->
         <div class="d-inline-flex align-items-center gap-3 mt-3">
@@ -24,7 +27,7 @@
     </div>
 
     <div class="row g-4 justify-content-center mb-6">
-        <div class="col-md-5">
+        <div class="col-lg-4 col-md-6">
             <PricingCard
                 Title="Free"
                 Price="£0"
@@ -34,7 +37,7 @@
                 CtaLabel="Download Free"
                 CtaHref="/download" />
         </div>
-        <div class="col-md-5">
+        <div class="col-lg-4 col-md-6">
             <PricingCard
                 Title="Pro"
                 Price="@(_isAnnual ? "£45" : "£5")"
@@ -45,6 +48,28 @@
                 CtaHref="#"
                 IsFeatured="true"
                 OnCtaClick="@HandleSubscribeClick" />
+        </div>
+        <div class="col-lg-4 col-md-6">
+            <PricingCard
+                Title="Custom"
+                Price="POA"
+                Period="one-off build"
+                Description="Bespoke Excel modules tailored to your exact workflow — scoped, built, and delivered to spec."
+                Features='@(new List<string> {
+                    "Fully scoped with you before build",
+                    "Agreed number of functions",
+                    "File cleaning &amp; data automation",
+                    "Lab workflows &amp; sample tracking",
+                    "System integrations (APIs / databases)",
+                    "Domain-specific tools",
+                    "Delivered as a dedicated ribbon module"
+                })'
+                CtaLabel="Request Custom Module"
+                CtaHref="/contact?subject=Request+Custom+Module"
+                HeaderLabel="BESPOKE"
+                HeaderClass="bg-warning text-dark"
+                ExtraCardClass="border-warning shadow-sm"
+                CtaBtnClass="btn-warning text-dark fw-semibold" />
         </div>
     </div>
 
@@ -63,6 +88,7 @@
                         <th class="text-start">Feature</th>
                         <th>Free</th>
                         <th>Pro</th>
+                        <th>Custom</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -72,10 +98,35 @@
                             <td class="text-start">@row.Feature</td>
                             <td>@((MarkupString)(row.Free ? "<i class='bi bi-check-lg text-success'></i>" : "<i class='bi bi-x-lg text-danger'></i>"))</td>
                             <td>@((MarkupString)(row.Pro ? "<i class='bi bi-check-lg text-success'></i>" : "<i class='bi bi-x-lg text-danger'></i>"))</td>
+                            <td>@((MarkupString)row.CustomCell)</td>
                         </tr>
                     }
                 </tbody>
             </table>
+        </div>
+        <p class="text-muted small text-center mt-2">
+            * Custom Modules are scoped individually — the exact features delivered are agreed during a free scoping call.
+        </p>
+    </div>
+
+    <!-- Custom Modules Callout -->
+    <div class="card border-warning mt-5">
+        <div class="card-body p-4">
+            <div class="row align-items-center g-3">
+                <div class="col-md-8">
+                    <h4 class="fw-bold mb-1"><i class="bi bi-puzzle-fill text-warning me-2"></i>Custom Modules — Built for You</h4>
+                    <p class="text-muted mb-0">
+                        Need a workflow that Core or Pro don't cover? We scope, build, and deliver a bespoke
+                        Excel module around your exact requirements — file cleaning, lab automation, API integrations,
+                        and more. One-off fee, no ongoing subscription.
+                    </p>
+                </div>
+                <div class="col-md-4 text-md-end">
+                    <a href="/contact?subject=Request+Custom+Module" class="btn btn-warning fw-semibold px-4">
+                        Request a Custom Module <i class="bi bi-arrow-right ms-2"></i>
+                    </a>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -108,15 +159,17 @@
 
     private readonly List<ComparisonRow> _comparisonRows =
     [
-        new("Get Last Row", true, true),
-        new("Get Last Column", true, true),
-        new("Unhide Rows", true, true),
-        new("Advanced Data Tools", false, true),
-        new("Bulk Operations", false, true),
-        new("Data Export", false, true),
-        new("SQL Builder", false, true),
-        new("Up to 2 machines", false, true),
-        new("Priority support", false, true)
+        new("Get Last Row",        true,  true,  "<i class='bi bi-check-lg text-success'></i>"),
+        new("Get Last Column",     true,  true,  "<i class='bi bi-check-lg text-success'></i>"),
+        new("Unhide Rows",         true,  true,  "<i class='bi bi-check-lg text-success'></i>"),
+        new("Advanced Data Tools", false, true,  "<i class='bi bi-check-lg text-success'></i>"),
+        new("Bulk Operations",     false, true,  "<i class='bi bi-check-lg text-success'></i>"),
+        new("Data Export",         false, true,  "<i class='bi bi-check-lg text-success'></i>"),
+        new("SQL Builder",         false, true,  "<i class='bi bi-check-lg text-success'></i>"),
+        new("Up to 2 machines",    false, true,  "<span class='text-muted small'>Scoped*</span>"),
+        new("Priority support",    false, true,  "<i class='bi bi-check-lg text-success'></i>"),
+        new("Bespoke functions",   false, false, "<i class='bi bi-check-lg text-success'></i>"),
+        new("One-off build fee",   false, false, "<i class='bi bi-check-lg text-success'></i>")
     ];
 
     private readonly List<FaqItem> _faqs =
@@ -124,7 +177,8 @@
         new("How many machines can I use with Pro?", "Each Pro licence supports up to 2 active machines. You can deactivate a machine from your dashboard to activate a new one."),
         new("Can I cancel at any time?", "Yes, you can cancel your subscription at any time from your billing dashboard. You'll retain access until the end of the current period."),
         new("Is there a refund policy?", "We offer a 14-day refund for new subscriptions. Contact support within 14 days of purchase."),
-        new("Do I need an account to use the free version?", "Yes — a free account is required to download UtilityMenu. Accounts let you manage your modules, receive updates, and handle licensing in one place. Sign up takes under a minute and no credit card is needed.")
+        new("Do I need an account to use the free version?", "Yes — a free account is required to download UtilityMenu. Accounts let you manage your modules, receive updates, and handle licensing in one place. Sign up takes under a minute and no credit card is needed."),
+        new("How does the Custom Module process work?", "Start by clicking 'Request Custom Module' and sending us a brief description of what you need. We'll arrange a short scoping call to agree on the functions, timelines, and a fixed build fee — before any work begins. Once complete, your module is delivered as an Excel ribbon add-in.")
     ];
 
     private async Task HandleSubscribeClick()
@@ -138,6 +192,6 @@
         Nav.NavigateTo("/pricing/checkout");
     }
 
-    private record ComparisonRow(string Feature, bool Free, bool Pro);
+    private record ComparisonRow(string Feature, bool Free, bool Pro, string CustomCell);
     private record FaqItem(string Question, string Answer);
 }

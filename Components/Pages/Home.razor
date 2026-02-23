@@ -7,7 +7,7 @@
 
 <PageTitle>UtilityMenu — Excel Add-in for Power Users</PageTitle>
 <HeadContent>
-    <meta name="description" content="UtilityMenu is a powerful Excel add-in with core and Pro modules to supercharge your spreadsheet workflow." />
+    <meta name="description" content="UtilityMenu is a powerful Excel add-in with Core and Pro modules to supercharge your spreadsheet workflow, plus Custom Modules built to your exact requirements." />
     <meta property="og:title" content="UtilityMenu — Excel Add-in for Power Users" />
     <meta property="og:description" content="Supercharge Excel with UtilityMenu. Core tools free, Pro modules available." />
     <meta property="og:type" content="website" />
@@ -31,6 +31,9 @@
                     <DownloadButton Label="Get UtilityMenu Free" CssClass="btn btn-primary btn-lg px-4" Version="@_version?.Version" />
                     <a href="/pricing" class="btn btn-outline-primary btn-lg px-4">
                         View Pro Plans <i class="bi bi-arrow-right ms-2"></i>
+                    </a>
+                    <a href="/contact?subject=Request+Custom+Module" class="btn btn-warning btn-lg px-4 fw-semibold">
+                        <i class="bi bi-puzzle-fill me-2"></i>Custom Modules
                     </a>
                 </div>
                 <p class="text-muted small mt-2 mb-0">
@@ -97,6 +100,48 @@
     </div>
 </section>
 
+<!-- Custom Modules Section -->
+<section class="py-6 bg-light">
+    <div class="container py-5">
+        <div class="row align-items-center g-5">
+            <div class="col-lg-6">
+                <span class="badge bg-warning text-dark mb-3 px-3 py-2">Bespoke Service</span>
+                <h2 class="fw-bold mb-3">Need Something Built Just for You?</h2>
+                <p class="lead mb-4 text-muted">
+                    Custom Modules are bespoke Excel workflows built around your specific requirements —
+                    from file cleaning and lab automation to system integrations and domain-specific tools.
+                    A one-off build fee, fully scoped with you before we start.
+                </p>
+                <ul class="list-unstyled mb-4">
+                    <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i>One-off build fee — no ongoing subscription</li>
+                    <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i>Agreed number of functions scoped upfront</li>
+                    <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i>Delivered as a dedicated Excel ribbon module</li>
+                    <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i>Ideal for teams with specialised workflows</li>
+                </ul>
+                <a href="/contact?subject=Request+Custom+Module" class="btn btn-warning btn-lg px-4 fw-semibold">
+                    Request a Custom Module <i class="bi bi-arrow-right ms-2"></i>
+                </a>
+            </div>
+            <div class="col-lg-6">
+                <div class="row g-3">
+                    @foreach (var example in _customExamples)
+                    {
+                        <div class="col-sm-6">
+                            <div class="card border-0 shadow-sm h-100">
+                                <div class="card-body p-3">
+                                    <i class="bi @example.Icon text-warning fs-4 mb-2 d-block"></i>
+                                    <h6 class="fw-semibold mb-1">@example.Title</h6>
+                                    <p class="text-muted small mb-0">@example.Description</p>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
 <!-- Blog Teaser -->
 @if (_latestPosts.Any())
 {
@@ -150,6 +195,14 @@
     private List<BlogPost> _latestPosts = new();
     private VersionManifest? _version;
 
+    private readonly List<CustomExample> _customExamples =
+    [
+        new("File Cleaning", "Automated pipelines for messy data imports, deduplication, and formatting.", "bi-file-earmark-check-fill"),
+        new("Lab Workflows", "Sample tracking, plate reader integration, and LIMS-adjacent automation.", "bi-eyedropper"),
+        new("System Integrations", "Pull and push data between Excel and your internal APIs or databases.", "bi-arrow-left-right"),
+        new("Domain-Specific Tools", "Built around your industry's naming conventions, formats, and rules.", "bi-puzzle-fill")
+    ];
+
     private readonly List<FeatureInfo> _features =
     [
         new("Get Last Row", "Instantly find the last used row in any column.", "bi-arrow-down-short", "Free"),
@@ -170,4 +223,5 @@
     }
 
     private record FeatureInfo(string Title, string Description, string Icon, string Tier);
+    private record CustomExample(string Title, string Description, string Icon);
 }
