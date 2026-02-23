@@ -28,27 +28,18 @@
                     From data utilities to SQL building — all in one place.
                 </p>
                 <div class="d-flex flex-wrap gap-3">
-                    <a href="/downloads/UtilityMenuInstaller.exe" class="btn btn-primary btn-lg px-4">
-                        <i class="bi bi-download me-2"></i>Get UtilityMenu Free
-                        @if (_version is not null)
-                        {
-                            <span class="badge bg-dark ms-2">v@(_version.Version)</span>
-                        }
-                    </a>
+                    <DownloadButton Label="Get UtilityMenu Free" CssClass="btn btn-primary btn-lg px-4" Version="@_version?.Version" />
                     <a href="/pricing" class="btn btn-outline-primary btn-lg px-4">
                         View Pro Plans <i class="bi bi-arrow-right ms-2"></i>
                     </a>
                 </div>
+                <p class="text-muted small mt-2 mb-0">
+                    <i class="bi bi-person-check me-1"></i>Free account required — manage modules, updates &amp; licensing in one place.
+                </p>
             </div>
             <div class="col-lg-6 text-center">
                 <div class="hero-screenshot p-3 bg-white bg-opacity-10 rounded-3">
-                    <img src="/img/excel-ribbon-screenshot.png" alt="UtilityMenu Excel Ribbon" class="img-fluid rounded shadow" onerror="this.style.display='none'" />
-                    <div class="p-4 bg-dark bg-opacity-25 rounded text-center" style="min-height:200px; display:flex; align-items:center; justify-content:center;">
-                        <div>
-                            <i class="bi bi-grid-3x3-gap-fill display-1 text-white-50 mb-3 d-block"></i>
-                            <span class="text-white-75">UtilityMenu Ribbon</span>
-                        </div>
-                    </div>
+                    <img src="/img/excel-ribbon-screenshot.png" alt="UtilityMenu Excel Ribbon" class="img-fluid rounded shadow" />
                 </div>
             </div>
         </div>
@@ -148,11 +139,9 @@
         <h2 class="fw-bold mb-3">Ready to Get Started?</h2>
         <p class="lead text-muted mb-4">
             Download UtilityMenu for free and start using core modules immediately.
-            No account required for the free tier.
+            A free account lets you manage modules, updates, and licensing in one place.
         </p>
-        <a href="/downloads/UtilityMenuInstaller.exe" class="btn btn-primary btn-lg px-5">
-            <i class="bi bi-windows me-2"></i>Download for Windows
-        </a>
+        <DownloadButton Label="Download for Windows" CssClass="btn btn-primary btn-lg px-5" Version="@_version?.Version" />
         <p class="text-muted small mt-3">Requires Microsoft Excel 2016 or later. Windows only.</p>
     </div>
 </section>
