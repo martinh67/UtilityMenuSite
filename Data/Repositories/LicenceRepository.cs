@@ -59,6 +59,9 @@ public class LicenceRepository : ILicenceRepository
         => await _db.Machines
             .FirstOrDefaultAsync(m => m.LicenceId == licenceId && m.MachineFingerprint == fingerprint, ct);
 
+    public async Task<Machine?> GetMachineByIdAsync(Guid machineId, CancellationToken ct = default)
+        => await _db.Machines.FindAsync([machineId], ct);
+
     public async Task<Machine> CreateMachineAsync(Machine machine, CancellationToken ct = default)
     {
         _db.Machines.Add(machine);
@@ -70,6 +73,17 @@ public class LicenceRepository : ILicenceRepository
     {
         _db.Machines.Update(machine);
         await _db.SaveChangesAsync(ct);
+    }
+
+    public async Task<bool> DeactivateMachineByIdAsync(Guid machineId, CancellationToken ct = default)
+    {
+        var machine = await _db.Machines.FindAsync([machineId], ct);
+        if (machine is null || !machine.IsActive) return false;
+
+        machine.IsActive = false;
+        machine.DeactivatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync(ct);
+        return true;
     }
 
     public async Task<int> GetActiveMachineCountAsync(Guid licenceId, CancellationToken ct = default)
@@ -114,11 +128,14 @@ public class LicenceRepository : ILicenceRepository
         await _db.SaveChangesAsync(ct);
     }
 
-    public async Task<List<Module>> GetProModulesAsync(CancellationToken ct = default)
-        => await _db.Modules
-            .Where(m => m.IsActive && (m.Tier == "pro" || m.Tier == "custom"))
+    public async Task<List<Module>> GetModulesByTiersAsync(IEnumerable<string> tiers, CancellationToken ct = default)
+    {
+        var tierList = tiers.ToList();
+        return await _db.Modules
+            .Where(m => m.IsActive && tierList.Contains(m.Tier))
             .OrderBy(m => m.SortOrder)
             .ToListAsync(ct);
+    }
 
     public async Task<int> GetTotalActiveLicencesAsync(CancellationToken ct = default)
         => await _db.Licences.CountAsync(l => l.IsActive, ct);

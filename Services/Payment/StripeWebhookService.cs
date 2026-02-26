@@ -54,12 +54,13 @@ public class StripeWebhookService : IStripeWebhookService
             return true;
         }
 
-        // 3. Store raw event
+        // 3. Store raw event (ReceivedAt must be set explicitly — DB default is SQL Server only)
         var record = new StripeWebhookEvent
         {
             StripeEventId = stripeEvent.Id,
             EventType = stripeEvent.Type,
-            RawPayload = body
+            RawPayload = body,
+            ReceivedAt = DateTime.UtcNow
         };
         await _licenceRepo.CreateWebhookEventAsync(record, ct);
 

@@ -11,15 +11,18 @@ public class StripeService : IStripeService
 {
     private readonly StripeSettings _settings;
     private readonly ILicenceService _licenceService;
+    private readonly ILicenceRepository _licenceRepo;
     private readonly ILogger<StripeService> _logger;
 
     public StripeService(
         IOptions<StripeSettings> settings,
         ILicenceService licenceService,
+        ILicenceRepository licenceRepo,
         ILogger<StripeService> logger)
     {
         _settings = settings.Value;
         _licenceService = licenceService;
+        _licenceRepo = licenceRepo;
         _logger = logger;
 
         StripeConfiguration.ApiKey = _settings.SecretKey;
@@ -93,6 +96,12 @@ public class StripeService : IStripeService
         _logger.LogInformation("Created Stripe billing portal session for customer {CustomerId}", stripeCustomerId);
 
         return new BillingPortalResult { Url = session.Url };
+    }
+
+    public async Task<string?> GetStripeCustomerIdForUserAsync(Guid userId, CancellationToken ct = default)
+    {
+        var customer = await _licenceRepo.GetStripeCustomerAsync(userId, ct);
+        return customer?.StripeCustomerId;
     }
 
     private async Task<string> GetOrCreateStripeCustomerAsync(string email, CancellationToken ct)

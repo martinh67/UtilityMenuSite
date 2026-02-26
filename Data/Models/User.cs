@@ -3,7 +3,11 @@ namespace UtilityMenuSite.Data.Models;
 public class User
 {
     public Guid UserId { get; set; }
-    public string IdentityId { get; set; } = string.Empty;
+    /// <summary>
+    /// The ASP.NET Core Identity user ID. Null for users created via Stripe checkout who have not
+    /// yet registered a site account. Set by <see cref="UserService.RegisterFromIdentityAsync"/>.
+    /// </summary>
+    public string? IdentityId { get; set; }
     public string Email { get; set; } = string.Empty;
     public string? DisplayName { get; set; }
     public string? Organisation { get; set; }
