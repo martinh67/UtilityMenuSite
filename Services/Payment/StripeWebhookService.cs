@@ -10,9 +10,8 @@ namespace UtilityMenuSite.Services.Payment;
 
 public class StripeWebhookService : IStripeWebhookService
 {
-    private static readonly TimeSpan DefaultGracePeriod = TimeSpan.FromDays(7);
-
     private readonly StripeSettings _settings;
+    private readonly LicensingSettings _licensingSettings;
     private readonly ILicenceService _licenceService;
     private readonly IUserService _userService;
     private readonly ILicenceRepository _licenceRepo;
@@ -20,12 +19,14 @@ public class StripeWebhookService : IStripeWebhookService
 
     public StripeWebhookService(
         IOptions<StripeSettings> settings,
+        IOptions<LicensingSettings> licensingSettings,
         ILicenceService licenceService,
         IUserService userService,
         ILicenceRepository licenceRepo,
         ILogger<StripeWebhookService> logger)
     {
         _settings = settings.Value;
+        _licensingSettings = licensingSettings.Value;
         _licenceService = licenceService;
         _userService = userService;
         _licenceRepo = licenceRepo;
@@ -211,7 +212,7 @@ public class StripeWebhookService : IStripeWebhookService
         var subscription = await _licenceRepo.GetSubscriptionByStripeIdAsync(invoice.SubscriptionId, ct);
         if (subscription is null) return;
 
-        var gracePeriodEnd = DateTime.UtcNow.Add(DefaultGracePeriod);
+        var gracePeriodEnd = DateTime.UtcNow.AddDays(_licensingSettings.GracePeriodDays);
         subscription.Status = "past_due";
         subscription.GracePeriodEnd = gracePeriodEnd;
         await _licenceRepo.UpdateSubscriptionAsync(subscription, ct);

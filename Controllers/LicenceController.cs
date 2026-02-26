@@ -1,8 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using UtilityMenuSite.Core.Exceptions;
 using UtilityMenuSite.Core.Interfaces;
 using UtilityMenuSite.Core.Models;
-using UtilityMenuSite.Services.Licensing;
 
 namespace UtilityMenuSite.Controllers;
 
@@ -109,13 +109,15 @@ public class LicenceController : ControllerBase
         }
     }
 
-    /// <summary>POST /api/licence/deactivate — Deactivate a machine</summary>
+    /// <summary>
+    /// POST /api/licence/deactivate — Deactivate a machine.
+    /// Supports two paths:
+    ///   Dashboard: { "machineId": "guid" }
+    ///   Add-in:    { "licenceKey": "UMENU-...", "machineFingerprint": "sha256" }
+    /// </summary>
     [HttpPost("deactivate")]
     public async Task<IActionResult> Deactivate([FromBody] DeactivateMachineRequest request, CancellationToken ct)
     {
-        if (!ModelState.IsValid)
-            return BadRequest(new { error = "Invalid request", code = "VALIDATION_FAILED" });
-
         var apiToken = GetBearerToken();
         if (string.IsNullOrWhiteSpace(apiToken))
             return Unauthorized(new { error = "API token required", code = "AUTH_REQUIRED" });
@@ -124,7 +126,29 @@ public class LicenceController : ControllerBase
         if (user is null)
             return Unauthorized(new { error = "Invalid API token", code = "AUTH_INVALID" });
 
-        var success = await _licenceService.DeactivateMachineAsync(request.MachineId, ct);
+        bool success;
+
+        if (request.MachineId != Guid.Empty)
+        {
+            // Dashboard path: deactivate by MachineId
+            success = await _licenceService.DeactivateMachineAsync(request.MachineId, ct);
+        }
+        else if (!string.IsNullOrWhiteSpace(request.LicenceKey) &&
+                 !string.IsNullOrWhiteSpace(request.MachineFingerprint))
+        {
+            // Add-in path: deactivate by key + fingerprint
+            success = await _licenceService.DeactivateMachineByFingerprintAsync(
+                request.LicenceKey, request.MachineFingerprint, ct);
+        }
+        else
+        {
+            return BadRequest(new
+            {
+                error = "Provide either machineId, or licenceKey + machineFingerprint",
+                code  = "VALIDATION_FAILED"
+            });
+        }
+
         return Ok(new { success });
     }
 
@@ -138,7 +162,3 @@ public class LicenceController : ControllerBase
 
 }
 
-public class DeactivateMachineRequest
-{
-    public Guid MachineId { get; set; }
-}

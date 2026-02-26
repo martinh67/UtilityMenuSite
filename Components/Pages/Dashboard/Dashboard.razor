@@ -220,9 +220,6 @@ else
             var identityUser = await UserManager.GetUserAsync(authState.User);
             if (identityUser is null) { Nav.NavigateTo("/account/login"); return; }
 
-            _user = await UserService.GetWithLicenceAsync(Guid.Empty); // Will fix with proper lookup
-
-            // Get the proper user via identity ID
             _user = await UserService.GetByIdentityIdAsync(identityUser.Id);
             if (_user is null)
             {

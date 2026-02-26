@@ -9,6 +9,7 @@ public interface ILicenceService
     Task<LicenceEntitlementsResult?> GetEntitlementsAsync(string licenceKey, CancellationToken ct = default);
     Task<ActivateMachineResult> ActivateMachineAsync(ActivateMachineRequest request, CancellationToken ct = default);
     Task<bool> DeactivateMachineAsync(Guid machineId, CancellationToken ct = default);
+    Task<bool> DeactivateMachineByFingerprintAsync(string licenceKey, string fingerprint, CancellationToken ct = default);
     Task<Licence?> GetActiveLicenceAsync(Guid userId, CancellationToken ct = default);
     Task<List<Machine>> GetActiveMachinesAsync(Guid licenceId, CancellationToken ct = default);
     Task<Subscription?> GetSubscriptionAsync(Guid userId, CancellationToken ct = default);

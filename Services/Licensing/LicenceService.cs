@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Options;
 using UtilityMenuSite.Core.Constants;
+using UtilityMenuSite.Core.Exceptions;
 using UtilityMenuSite.Core.Interfaces;
 using UtilityMenuSite.Core.Models;
 using UtilityMenuSite.Data.Models;
@@ -190,6 +191,27 @@ public class LicenceService : ILicenceService
         return success;
     }
 
+    public async Task<bool> DeactivateMachineByFingerprintAsync(
+        string licenceKey, string fingerprint, CancellationToken ct = default)
+    {
+        var licence = await _licenceRepo.GetByKeyAsync(licenceKey, ct);
+        if (licence is null)
+        {
+            _logger.LogWarning("DeactivateByFingerprint: licence key {Key} not found", licenceKey);
+            return false;
+        }
+
+        var machine = await _licenceRepo.GetMachineAsync(licence.LicenceId, fingerprint, ct);
+        if (machine is null || !machine.IsActive)
+        {
+            _logger.LogWarning("DeactivateByFingerprint: no active machine for licence {LicenceId} with fingerprint {FP}",
+                licence.LicenceId, fingerprint[..8]);
+            return false;
+        }
+
+        return await DeactivateMachineAsync(machine.MachineId, ct);
+    }
+
     public async Task<Licence?> GetActiveLicenceAsync(Guid userId, CancellationToken ct = default)
         => await _licenceRepo.GetActiveLicenceForUserAsync(userId, ct);
 
@@ -301,7 +323,3 @@ public class LicenceService : ILicenceService
     }
 }
 
-public class SeatLimitExceededException : Exception
-{
-    public SeatLimitExceededException(string message) : base(message) { }
-}
