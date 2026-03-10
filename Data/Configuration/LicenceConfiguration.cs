@@ -31,6 +31,7 @@ public class LicenceConfiguration : IEntityTypeConfiguration<Licence>
         builder.HasOne(l => l.User)
             .WithMany(u => u.Licences)
             .HasForeignKey(l => l.UserId)
+            .OnDelete(DeleteBehavior.NoAction)
             .HasConstraintName("FK_Licences_Users");
 
         builder.HasOne(l => l.Subscription)

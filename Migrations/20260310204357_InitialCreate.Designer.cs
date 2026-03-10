@@ -12,7 +12,7 @@ using UtilityMenuSite.Data.Context;
 namespace UtilityMenuSite.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260310203853_InitialCreate")]
+    [Migration("20260310204357_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -1168,7 +1168,7 @@ namespace UtilityMenuSite.Migrations
                     b.HasOne("UtilityMenuSite.Data.Models.User", "User")
                         .WithMany("Licences")
                         .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired()
                         .HasConstraintName("FK_Licences_Users");
 
@@ -1233,7 +1233,7 @@ namespace UtilityMenuSite.Migrations
                     b.HasOne("UtilityMenuSite.Data.Models.User", "User")
                         .WithMany("Subscriptions")
                         .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired()
                         .HasConstraintName("FK_Subscriptions_Users");
 

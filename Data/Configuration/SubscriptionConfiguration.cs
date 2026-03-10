@@ -34,6 +34,7 @@ public class SubscriptionConfiguration : IEntityTypeConfiguration<Subscription>
         builder.HasOne(s => s.User)
             .WithMany(u => u.Subscriptions)
             .HasForeignKey(s => s.UserId)
+            .OnDelete(DeleteBehavior.NoAction)
             .HasConstraintName("FK_Subscriptions_Users");
     }
 }

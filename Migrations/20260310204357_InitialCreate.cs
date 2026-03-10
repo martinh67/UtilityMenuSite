@@ -391,8 +391,7 @@ namespace UtilityMenuSite.Migrations
                         name: "FK_Subscriptions_Users",
                         column: x => x.UserId,
                         principalTable: "Users",
-                        principalColumn: "UserId",
-                        onDelete: ReferentialAction.Cascade);
+                        principalColumn: "UserId");
                 });
 
             migrationBuilder.CreateTable(
@@ -425,8 +424,7 @@ namespace UtilityMenuSite.Migrations
                         name: "FK_Licences_Users",
                         column: x => x.UserId,
                         principalTable: "Users",
-                        principalColumn: "UserId",
-                        onDelete: ReferentialAction.Cascade);
+                        principalColumn: "UserId");
                 });
 
             migrationBuilder.CreateTable(
