@@ -11,7 +11,9 @@ public class AppDbContextFactory : IDesignTimeDbContextFactory<AppDbContext>
 {
     public AppDbContext CreateDbContext(string[] args)
     {
-        var connectionString = Environment.GetEnvironmentVariable("SQLSERVER_CONNECTION_STRING")
+        var connectionString =
+            Environment.GetEnvironmentVariable("SQLSERVER_CONNECTION_STRING")
+            ?? Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
             ?? throw new InvalidOperationException(
                 "Set SQLSERVER_CONNECTION_STRING before running dotnet ef commands.");
 
