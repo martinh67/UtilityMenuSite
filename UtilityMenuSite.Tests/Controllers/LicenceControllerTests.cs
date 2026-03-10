@@ -9,6 +9,7 @@ using UtilityMenuSite.Core.Interfaces;
 using UtilityMenuSite.Core.Models;
 using UtilityMenuSite.Data.Models;
 using UtilityMenuSite.Services.Licensing;
+using UtilityMenuSite.Core.Exceptions;
 
 namespace UtilityMenuSite.Tests.Controllers;
 
