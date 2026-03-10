@@ -1,0 +1,160 @@
+@page "/account/complete-profile"
+@rendermode InteractiveServer
+@layout AuthLayout
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
+@attribute [Authorize]
+@inject AuthenticationStateProvider AuthProvider
+@inject UserManager<Data.Models.ApplicationUser> UserManager
+@inject IUserService UserService
+@inject NavigationManager Nav
+
+<PageTitle>Complete Your Profile — UtilityMenu</PageTitle>
+
+<h4 class="fw-bold mb-1">Complete your profile</h4>
+<p class="text-muted small mb-4">
+    All fields are optional. This helps us tailor module recommendations to you.
+</p>
+
+@if (!string.IsNullOrWhiteSpace(_errorMessage))
+{
+    <AlertBanner Message="@_errorMessage" Type="danger" />
+}
+
+<EditForm Model="_model" OnValidSubmit="HandleSubmit">
+    <DataAnnotationsValidator />
+
+    <div class="mb-3">
+        <label class="form-label small fw-semibold">Display Name</label>
+        <InputText @bind-Value="_model.DisplayName" class="form-control" placeholder="Your name" />
+        <ValidationMessage For="() => _model.DisplayName" class="text-danger small" />
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label small fw-semibold">Organisation</label>
+        <InputText @bind-Value="_model.Organisation" class="form-control" placeholder="Company or team name" />
+        <ValidationMessage For="() => _model.Organisation" class="text-danger small" />
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label small fw-semibold">Job Role</label>
+        <InputSelect @bind-Value="_model.JobRole" class="form-select">
+            <option value="">Select your role...</option>
+            <option value="Analyst">Data Analyst</option>
+            <option value="Finance">Finance / Accounting</option>
+            <option value="Developer">Developer / Engineer</option>
+            <option value="Manager">Manager / Team Lead</option>
+            <option value="Consultant">Consultant</option>
+            <option value="Other">Other</option>
+        </InputSelect>
+    </div>
+
+    <div class="mb-4">
+        <label class="form-label small fw-semibold">What will you use UtilityMenu for?</label>
+        <div class="d-flex flex-wrap gap-2 mt-1">
+            @foreach (var interest in _availableInterests)
+            {
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="interest_@interest"
+                           checked="@_model.SelectedInterests.Contains(interest)"
+                           @onchange="() => ToggleInterest(interest)" />
+                    <label class="form-check-label small" for="interest_@interest">@interest</label>
+                </div>
+            }
+        </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary w-100 mb-2" disabled="@_submitting">
+        @if (_submitting)
+        {
+            <span class="spinner-border spinner-border-sm me-2"></span>
+        }
+        Save Profile
+    </button>
+</EditForm>
+
+<div class="text-center mt-2">
+    <button class="btn btn-link text-muted small p-0" @onclick="Skip">
+        Skip for now
+    </button>
+</div>
+
+@code {
+    [SupplyParameterFromQuery]
+    public string? ReturnUrl { get; set; }
+
+    private readonly ProfileModel _model = new();
+    private string? _errorMessage;
+    private bool _submitting;
+    private Data.Models.User? _user;
+
+    private readonly List<string> _availableInterests =
+    [
+        "Data cleaning", "Reporting", "SQL generation", "Bulk operations", "Data export", "Automation"
+    ];
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthProvider.GetAuthenticationStateAsync();
+        var identityUser = await UserManager.GetUserAsync(authState.User);
+        if (identityUser is null) { Nav.NavigateTo("/account/login"); return; }
+
+        _user = await UserService.GetByIdentityIdAsync(identityUser.Id);
+        if (_user is not null)
+        {
+            _model.DisplayName = _user.DisplayName;
+            _model.Organisation = _user.Organisation;
+            _model.JobRole = _user.JobRole;
+            if (!string.IsNullOrWhiteSpace(_user.UsageInterests))
+                _model.SelectedInterests = [.. _user.UsageInterests.Split(',', StringSplitOptions.RemoveEmptyEntries)];
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (_user is null) return;
+        _submitting = true;
+        _errorMessage = null;
+
+        try
+        {
+            var interests = string.Join(",", _model.SelectedInterests);
+            await UserService.UpdateProfileAsync(
+                _user.UserId,
+                _model.DisplayName,
+                _model.Organisation,
+                _model.JobRole,
+                interests);
+            Nav.NavigateTo(ReturnUrl ?? "/dashboard");
+        }
+        catch (Exception)
+        {
+            _errorMessage = "Failed to save profile. Please try again.";
+            _submitting = false;
+        }
+    }
+
+    private void Skip() => Nav.NavigateTo(ReturnUrl ?? "/dashboard");
+
+    private void ToggleInterest(string interest)
+    {
+        if (_model.SelectedInterests.Contains(interest))
+            _model.SelectedInterests.Remove(interest);
+        else
+            _model.SelectedInterests.Add(interest);
+    }
+
+    private class ProfileModel
+    {
+        [System.ComponentModel.DataAnnotations.MaxLength(100)]
+        public string? DisplayName { get; set; }
+
+        [System.ComponentModel.DataAnnotations.MaxLength(200)]
+        public string? Organisation { get; set; }
+
+        [System.ComponentModel.DataAnnotations.MaxLength(100)]
+        public string? JobRole { get; set; }
+
+        public List<string> SelectedInterests { get; set; } = [];
+    }
+}

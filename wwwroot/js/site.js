@@ -95,3 +95,11 @@ window.localStorageHelper = {
 window.setDocumentTitle = function (title) {
     document.title = title;
 };
+
+// ── File Download Trigger ─────────────────────────────────────
+// Used by Download.razor to initiate a tracked download via the API endpoint.
+// Setting window.location.href to a URL that returns a file response causes
+// the browser to start the download without navigating away from the page.
+window.triggerFileDownload = function (url) {
+    window.location.href = url;
+};

@@ -1,7 +1,8 @@
 @page "/checkout/success"
 @rendermode InteractiveServer
 @inject NavigationManager Nav
-@inject HttpClient Http
+@inject IStripeService StripeService
+@inject ILogger<CheckoutSuccess> Logger
 
 <PageTitle>Payment Successful — UtilityMenu</PageTitle>
 
@@ -32,21 +33,21 @@
                 <div class="card border-0 shadow-sm p-4 mb-4 text-start">
                     <h5 class="fw-bold mb-3">Next Steps</h5>
                     <div class="d-flex align-items-start gap-3 mb-3">
-                        <div class="bg-primary rounded-circle text-white d-flex align-items-center justify-content-center flex-shrink-0" style="width:32px;height:32px;font-weight:bold;">1</div>
+                        <div class="bg-primary rounded-circle text-dark d-flex align-items-center justify-content-center flex-shrink-0" style="width:32px;height:32px;font-weight:bold;">1</div>
                         <div>
                             <strong>Download UtilityMenu</strong>
                             <p class="text-muted small mb-0">Download and run the installer for Windows.</p>
                         </div>
                     </div>
                     <div class="d-flex align-items-start gap-3 mb-3">
-                        <div class="bg-primary rounded-circle text-white d-flex align-items-center justify-content-center flex-shrink-0" style="width:32px;height:32px;font-weight:bold;">2</div>
+                        <div class="bg-primary rounded-circle text-dark d-flex align-items-center justify-content-center flex-shrink-0" style="width:32px;height:32px;font-weight:bold;">2</div>
                         <div>
                             <strong>Open Excel</strong>
                             <p class="text-muted small mb-0">You'll find the UtilityMenu tab in your Excel ribbon.</p>
                         </div>
                     </div>
                     <div class="d-flex align-items-start gap-3">
-                        <div class="bg-primary rounded-circle text-white d-flex align-items-center justify-content-center flex-shrink-0" style="width:32px;height:32px;font-weight:bold;">3</div>
+                        <div class="bg-primary rounded-circle text-dark d-flex align-items-center justify-content-center flex-shrink-0" style="width:32px;height:32px;font-weight:bold;">3</div>
                         <div>
                             <strong>Enter Your Licence Key</strong>
                             <p class="text-muted small mb-0">Go to UtilityMenu &rarr; Settings &rarr; Enter Licence Key and paste the key above.</p>
@@ -55,7 +56,7 @@
                 </div>
 
                 <div class="d-flex gap-3 justify-content-center">
-                    <a href="/downloads/UtilityMenuInstaller.exe" class="btn btn-primary btn-lg">
+                    <a href="/download" class="btn btn-primary btn-lg">
                         <i class="bi bi-download me-2"></i>Download UtilityMenu
                     </a>
                     <a href="/dashboard" class="btn btn-outline-primary btn-lg">View Dashboard</a>
@@ -65,8 +66,9 @@
             {
                 <div class="alert alert-warning">
                     <h4 class="alert-heading">Still Processing</h4>
-                    <p>Your payment was received but the licence is still being set up. Please check your dashboard in a few minutes, or <a href="/contact">contact support</a> if this persists.</p>
+                    <p>Your payment was received but the licence is still being set up. Your key will appear in your <a href="/dashboard">dashboard</a> shortly. If it does not appear within 5 minutes, please <a href="/contact">contact support</a>.</p>
                 </div>
+                <a href="/dashboard" class="btn btn-primary mt-2">Go to Dashboard</a>
             }
             else if (!string.IsNullOrWhiteSpace(_error))
             {
@@ -109,18 +111,20 @@
         {
             try
             {
-                var response = await Http.GetFromJsonAsync<StatusResponse>(
-                    $"/api/checkout/status?sessionId={Uri.EscapeDataString(SessionId!)}");
+                // Call the service directly — no Bearer token needed; no HTTP round-trip required
+                // in InteractiveServer mode. The previous implementation called the API endpoint
+                // which requires auth and always returned 401 from a Blazor page context.
+                var result = await StripeService.GetSessionStatusAsync(SessionId!, CancellationToken.None);
 
-                if (response?.Status == "complete" && !string.IsNullOrWhiteSpace(response.LicenceKey))
+                if (result.Status == "complete" && !string.IsNullOrWhiteSpace(result.LicenceKey))
                 {
-                    _licenceKey = response.LicenceKey;
+                    _licenceKey = result.LicenceKey;
                     _loading = false;
                     StateHasChanged();
                     return;
                 }
 
-                if (response?.Status is "expired" or "failed")
+                if (result.Status is "expired" or "failed")
                 {
                     _error = "Payment was not completed. Please try again.";
                     _loading = false;
@@ -128,7 +132,10 @@
                     return;
                 }
             }
-            catch { /* retry */ }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Error polling checkout status for session {SessionId}", SessionId);
+            }
 
             await Task.Delay(3000);
         }
@@ -137,6 +144,4 @@
         _loading = false;
         StateHasChanged();
     }
-
-    private record StatusResponse(string Status, string? LicenceKey, string? CustomerEmail);
 }

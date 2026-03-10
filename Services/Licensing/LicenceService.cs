@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Options;
 using UtilityMenuSite.Core.Constants;
+using UtilityMenuSite.Core.Exceptions;
 using UtilityMenuSite.Core.Interfaces;
 using UtilityMenuSite.Core.Models;
 using UtilityMenuSite.Data.Models;
@@ -164,13 +165,51 @@ public class LicenceService : ILicenceService
 
     public async Task<bool> DeactivateMachineAsync(Guid machineId, CancellationToken ct = default)
     {
-        var machines = await _licenceRepo.GetActiveMachinesAsync(Guid.Empty, ct);
-        // We need to find by machineId directly — add a helper
-        // For now iterate licences via context; handled in repo directly
-        // Use a simpler approach via direct db query through the Licence's Machines collection
-        // This is resolved by querying via the machine's FK in the repo
-        _logger.LogInformation("Deactivating machine {MachineId}", machineId);
-        return true;
+        var success = await _licenceRepo.DeactivateMachineByIdAsync(machineId, ct);
+
+        if (success)
+        {
+            var machine = await _licenceRepo.GetMachineByIdAsync(machineId, ct);
+            if (machine is not null)
+            {
+                await _licenceRepo.RecordUsageEventAsync(new UsageEvent
+                {
+                    LicenceId = machine.LicenceId,
+                    MachineId = machineId,
+                    EventType = EventTypeConstants.MachineDeactivation,
+                    OccurredAt = DateTime.UtcNow
+                }, ct);
+            }
+
+            _logger.LogInformation("Deactivated machine {MachineId}", machineId);
+        }
+        else
+        {
+            _logger.LogWarning("Machine {MachineId} not found or already inactive", machineId);
+        }
+
+        return success;
+    }
+
+    public async Task<bool> DeactivateMachineByFingerprintAsync(
+        string licenceKey, string fingerprint, CancellationToken ct = default)
+    {
+        var licence = await _licenceRepo.GetByKeyAsync(licenceKey, ct);
+        if (licence is null)
+        {
+            _logger.LogWarning("DeactivateByFingerprint: licence key {Key} not found", licenceKey);
+            return false;
+        }
+
+        var machine = await _licenceRepo.GetMachineAsync(licence.LicenceId, fingerprint, ct);
+        if (machine is null || !machine.IsActive)
+        {
+            _logger.LogWarning("DeactivateByFingerprint: no active machine for licence {LicenceId} with fingerprint {FP}",
+                licence.LicenceId, fingerprint[..8]);
+            return false;
+        }
+
+        return await DeactivateMachineAsync(machine.MachineId, ct);
     }
 
     public async Task<Licence?> GetActiveLicenceAsync(Guid userId, CancellationToken ct = default)
@@ -242,9 +281,14 @@ public class LicenceService : ILicenceService
         };
         await _licenceRepo.CreateAsync(licence, ct);
 
-        // Grant Pro modules
-        var proModules = await _licenceRepo.GetProModulesAsync(ct);
-        var licenceModules = proModules.Select(m => new LicenceModule
+        // Grant modules: always core; also pro for non-custom licence types.
+        // Custom licences have modules granted explicitly via admin provisioning.
+        var tiersToGrant = licenceType == LicenceConstants.TypeCustom
+            ? new[] { ModuleConstants.TierCore }
+            : new[] { ModuleConstants.TierCore, ModuleConstants.TierPro };
+
+        var modules = await _licenceRepo.GetModulesByTiersAsync(tiersToGrant, ct);
+        var licenceModules = modules.Select(m => new LicenceModule
         {
             LicenceId = licence.LicenceId,
             ModuleId = m.ModuleId,
@@ -253,7 +297,8 @@ public class LicenceService : ILicenceService
 
         await _licenceRepo.AddLicenceModulesAsync(licenceModules, ct);
 
-        _logger.LogInformation("Provisioned licence {LicenceKey} with {ModuleCount} modules", licenceKey, proModules.Count);
+        _logger.LogInformation("Provisioned licence {LicenceKey} ({LicenceType}) with {ModuleCount} modules",
+            licenceKey, licenceType, modules.Count);
 
         return licence;
     }
@@ -278,7 +323,3 @@ public class LicenceService : ILicenceService
     }
 }
 
-public class SeatLimitExceededException : Exception
-{
-    public SeatLimitExceededException(string message) : base(message) { }
-}

@@ -1,0 +1,43 @@
+name: Deploy — Dev
+
+on:
+  push:
+    branches:
+      - 'feature/**'
+      - 'claude/**'
+      - 'copilot/**'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-dev-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    uses: ./.github/workflows/reusable-build.yml
+    with:
+      configuration: Release
+      upload-artifact: true
+      artifact-name: app-dev
+
+  test:
+    needs: build
+    uses: ./.github/workflows/reusable-test.yml
+
+  migrate:
+    needs: test
+    uses: ./.github/workflows/reusable-migrate.yml
+    with:
+      environment: Dev
+    secrets:
+      connection-string: ${{ secrets.DEV_CONNECTION_STRING }}
+
+  deploy:
+    needs: migrate
+    uses: ./.github/workflows/reusable-deploy-azure.yml
+    with:
+      environment: Dev
+      app-name: utilitymenu-dev
+      artifact-name: app-dev
+    secrets:
+      azure-credentials: ${{ secrets.DEV_AZURE_CREDENTIALS }}

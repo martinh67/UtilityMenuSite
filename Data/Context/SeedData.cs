@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using UtilityMenuSite.Data.Models;
+using UtilityMenuSite.Infrastructure.Security;
 
 namespace UtilityMenuSite.Data.Context;
 
@@ -9,6 +11,7 @@ public static class SeedData
     {
         var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
         var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
+        var db = services.GetRequiredService<AppDbContext>();
 
         // Seed roles
         string[] roles = ["Admin", "User"];
@@ -31,6 +34,24 @@ public static class SeedData
             };
             await userManager.CreateAsync(admin, "Admin@123456");
             await userManager.AddToRoleAsync(admin, "Admin");
+        }
+
+        // Ensure a corresponding AppUsers record exists for the admin Identity user.
+        // Without this, IUserService.GetByIdentityIdAsync returns null and admin pages fail.
+        var adminProfile = await db.AppUsers.FirstOrDefaultAsync(u => u.IdentityId == admin.Id);
+        if (adminProfile is null)
+        {
+            db.AppUsers.Add(new User
+            {
+                IdentityId = admin.Id,
+                Email = adminEmail,
+                DisplayName = "Admin",
+                ApiToken = ApiTokenGenerator.Generate(),
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            });
+            await db.SaveChangesAsync();
         }
     }
 }
