@@ -2,17 +2,18 @@
 @rendermode InteractiveServer
 @inject IContactService ContactService
 @inject IHttpContextAccessor HttpContextAccessor
+@inject NavigationManager Nav
 
 <PageTitle>Contact — UtilityMenu</PageTitle>
 <HeadContent>
-    <meta name="description" content="Contact UtilityMenu support for technical help, billing enquiries, or feature requests." />
+    <meta name="description" content="Contact UtilityMenu support for technical help, billing enquiries, custom module requests, or feature requests." />
 </HeadContent>
 
 <div class="container py-5">
     <div class="row justify-content-center">
         <div class="col-md-7">
             <h1 class="fw-bold mb-1">Get in Touch</h1>
-            <p class="text-muted mb-4">We typically respond within 1-2 business days.</p>
+            <p class="text-muted mb-4">We typically respond within 1–2 business days.</p>
 
             @if (_submitted)
             {
@@ -42,9 +43,10 @@
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label small fw-semibold">Subject</label>
+                        <label class="form-label small fw-semibold">Reason for Contact</label>
                         <InputSelect @bind-Value="_model.Subject" class="form-select">
-                            <option value="">— Select a subject —</option>
+                            <option value="">— Select a reason —</option>
+                            <option value="Request Custom Module">Request Custom Module</option>
                             <option value="General Enquiry">General Enquiry</option>
                             <option value="Technical Support">Technical Support</option>
                             <option value="Billing">Billing</option>
@@ -52,12 +54,19 @@
                             <option value="Bug Report">Bug Report</option>
                         </InputSelect>
                         <ValidationMessage For="() => _model.Subject" class="text-danger small" />
+                        @if (_model.Subject == "Request Custom Module")
+                        {
+                            <div class="alert alert-warning mt-2 py-2 px-3 small mb-0">
+                                <i class="bi bi-info-circle me-1"></i>
+                                Please describe your workflow requirements in as much detail as possible — we'll arrange a short scoping call to discuss further.
+                            </div>
+                        }
                     </div>
 
                     <div class="mb-4">
                         <label class="form-label small fw-semibold">Message</label>
                         <InputTextArea @bind-Value="_model.Message" class="form-control" rows="6"
-                                       placeholder="Describe your question or issue in detail..." />
+                                       placeholder="@_messagePlaceholder" />
                         <ValidationMessage For="() => _model.Message" class="text-danger small" />
                     </div>
 
@@ -82,9 +91,21 @@
                 <i class="bi bi-envelope text-primary fs-5"></i>
                 <span class="small">support@utilitymenu.com</span>
             </div>
-            <div class="d-flex align-items-center gap-2 mb-3 text-muted">
+            <div class="d-flex align-items-center gap-2 mb-4 text-muted">
                 <i class="bi bi-github text-primary fs-5"></i>
                 <a href="https://github.com/martinh67/UtilityMenu/issues" target="_blank" class="small text-decoration-none text-muted">GitHub Issues</a>
+            </div>
+
+            <div class="card border-warning bg-warning bg-opacity-10">
+                <div class="card-body p-3">
+                    <h6 class="fw-semibold mb-1"><i class="bi bi-puzzle-fill text-warning me-1"></i>Custom Modules</h6>
+                    <p class="text-muted small mb-2">
+                        Need a bespoke Excel workflow? We scope, build, and deliver to your exact requirements.
+                    </p>
+                    <a href="/pricing#custom" class="small text-warning fw-semibold text-decoration-none">
+                        See what's possible <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
             </div>
         </div>
     </div>
@@ -95,6 +116,23 @@
     private bool _submitted;
     private bool _submitting;
     private string? _errorMessage;
+
+    private string _messagePlaceholder => _model.Subject == "Request Custom Module"
+        ? "Describe the workflow you need — e.g. what data sources, what outputs, how often it runs, and any system integrations required..."
+        : "Describe your question or issue in detail...";
+
+    protected override void OnInitialized()
+    {
+        // Pre-select the Subject dropdown from the query string, e.g. /contact?subject=Request+Custom+Module
+        var uri = new Uri(Nav.Uri);
+        var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query);
+        if (query.TryGetValue("subject", out var values))
+        {
+            var subject = values.FirstOrDefault();
+            if (!string.IsNullOrWhiteSpace(subject))
+                _model.Subject = subject;
+        }
+    }
 
     private async Task HandleSubmit()
     {

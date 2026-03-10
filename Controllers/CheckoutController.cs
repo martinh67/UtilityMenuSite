@@ -86,25 +86,34 @@ public class CheckoutController : ControllerBase
         }
     }
 
-    /// <summary>POST /api/checkout/billing-portal — Create billing portal session</summary>
+    /// <summary>
+    /// POST /api/checkout/billing-portal — Create a Stripe Billing Portal session for the
+    /// authenticated user. The Stripe customer is resolved from the bearer token — callers
+    /// cannot request a portal for an arbitrary customer ID.
+    /// </summary>
     [HttpPost("billing-portal")]
-    public async Task<IActionResult> BillingPortal([FromBody] BillingPortalRequest request, CancellationToken ct)
+    public async Task<IActionResult> BillingPortal(CancellationToken ct)
     {
-        if (!ModelState.IsValid)
-            return BadRequest(new { error = "Invalid request", code = "VALIDATION_FAILED" });
-
         var apiToken = GetBearerToken();
         if (string.IsNullOrWhiteSpace(apiToken))
             return Unauthorized(new { error = "API token required", code = "AUTH_REQUIRED" });
 
+        var user = await _userService.GetByApiTokenAsync(apiToken, ct);
+        if (user is null)
+            return Unauthorized(new { error = "Invalid API token", code = "AUTH_INVALID" });
+
+        var stripeCustomerId = await _stripeService.GetStripeCustomerIdForUserAsync(user.UserId, ct);
+        if (string.IsNullOrWhiteSpace(stripeCustomerId))
+            return NotFound(new { error = "No billing account found for this user", code = "NO_BILLING_ACCOUNT" });
+
         try
         {
-            var result = await _stripeService.CreateBillingPortalSessionAsync(request.StripeCustomerId, ct);
+            var result = await _stripeService.CreateBillingPortalSessionAsync(stripeCustomerId, ct);
             return Ok(new { url = result.Url });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to create billing portal session");
+            _logger.LogError(ex, "Failed to create billing portal session for user {UserId}", user.UserId);
             return StatusCode(500, new { error = "Failed to create billing portal session", code = "STRIPE_ERROR" });
         }
     }
@@ -118,7 +127,3 @@ public class CheckoutController : ControllerBase
     }
 }
 
-public class BillingPortalRequest
-{
-    public string StripeCustomerId { get; set; } = string.Empty;
-}

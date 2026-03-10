@@ -1,7 +1,8 @@
 @page "/checkout/success"
 @rendermode InteractiveServer
 @inject NavigationManager Nav
-@inject HttpClient Http
+@inject IStripeService StripeService
+@inject ILogger<CheckoutSuccess> Logger
 
 <PageTitle>Payment Successful — UtilityMenu</PageTitle>
 
@@ -65,8 +66,9 @@
             {
                 <div class="alert alert-warning">
                     <h4 class="alert-heading">Still Processing</h4>
-                    <p>Your payment was received but the licence is still being set up. Please check your dashboard in a few minutes, or <a href="/contact">contact support</a> if this persists.</p>
+                    <p>Your payment was received but the licence is still being set up. Your key will appear in your <a href="/dashboard">dashboard</a> shortly. If it does not appear within 5 minutes, please <a href="/contact">contact support</a>.</p>
                 </div>
+                <a href="/dashboard" class="btn btn-primary mt-2">Go to Dashboard</a>
             }
             else if (!string.IsNullOrWhiteSpace(_error))
             {
@@ -109,18 +111,20 @@
         {
             try
             {
-                var response = await Http.GetFromJsonAsync<StatusResponse>(
-                    $"/api/checkout/status?sessionId={Uri.EscapeDataString(SessionId!)}");
+                // Call the service directly — no Bearer token needed; no HTTP round-trip required
+                // in InteractiveServer mode. The previous implementation called the API endpoint
+                // which requires auth and always returned 401 from a Blazor page context.
+                var result = await StripeService.GetSessionStatusAsync(SessionId!, CancellationToken.None);
 
-                if (response?.Status == "complete" && !string.IsNullOrWhiteSpace(response.LicenceKey))
+                if (result.Status == "complete" && !string.IsNullOrWhiteSpace(result.LicenceKey))
                 {
-                    _licenceKey = response.LicenceKey;
+                    _licenceKey = result.LicenceKey;
                     _loading = false;
                     StateHasChanged();
                     return;
                 }
 
-                if (response?.Status is "expired" or "failed")
+                if (result.Status is "expired" or "failed")
                 {
                     _error = "Payment was not completed. Please try again.";
                     _loading = false;
@@ -128,7 +132,10 @@
                     return;
                 }
             }
-            catch { /* retry */ }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Error polling checkout status for session {SessionId}", SessionId);
+            }
 
             await Task.Delay(3000);
         }
@@ -137,6 +144,4 @@
         _loading = false;
         StateHasChanged();
     }
-
-    private record StatusResponse(string Status, string? LicenceKey, string? CustomerEmail);
 }

@@ -14,8 +14,9 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(u => u.UserId)
             .HasDefaultValueSql("NEWSEQUENTIALID()");
 
+        // IdentityId is nullable — users created via Stripe checkout have no Identity account
+        // until they register on the site. The unique index is filtered to non-null values only.
         builder.Property(u => u.IdentityId)
-            .IsRequired()
             .HasMaxLength(450);
 
         builder.Property(u => u.Email)
@@ -54,8 +55,11 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             .IsUnique()
             .HasDatabaseName("UQ_Users_Email");
 
+        // Unique index on IdentityId filtered to non-null rows only, allowing multiple
+        // checkout-created users with null IdentityId to coexist.
         builder.HasIndex(u => u.IdentityId)
             .IsUnique()
+            .HasFilter("[IdentityId] IS NOT NULL")
             .HasDatabaseName("UQ_Users_IdentityId");
 
         builder.HasIndex(u => u.ApiToken)
