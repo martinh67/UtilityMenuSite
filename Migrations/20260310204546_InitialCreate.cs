@@ -680,7 +680,7 @@ namespace UtilityMenuSite.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_StripeCustomers_UserId",
+                name: "UQ_StripeCustomers_UserId",
                 table: "StripeCustomers",
                 column: "UserId",
                 unique: true);

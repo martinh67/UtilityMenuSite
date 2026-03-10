@@ -802,7 +802,7 @@ namespace UtilityMenuSite.Migrations
 
                     b.HasIndex("UserId")
                         .IsUnique()
-                        .HasDatabaseName("IX_StripeCustomers_UserId");
+                        .HasDatabaseName("UQ_StripeCustomers_UserId");
 
                     b.ToTable("StripeCustomers", (string)null);
                 });

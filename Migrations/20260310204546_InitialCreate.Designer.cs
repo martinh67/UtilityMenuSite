@@ -12,7 +12,7 @@ using UtilityMenuSite.Data.Context;
 namespace UtilityMenuSite.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260310204357_InitialCreate")]
+    [Migration("20260310204546_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -805,7 +805,7 @@ namespace UtilityMenuSite.Migrations
 
                     b.HasIndex("UserId")
                         .IsUnique()
-                        .HasDatabaseName("IX_StripeCustomers_UserId");
+                        .HasDatabaseName("UQ_StripeCustomers_UserId");
 
                     b.ToTable("StripeCustomers", (string)null);
                 });

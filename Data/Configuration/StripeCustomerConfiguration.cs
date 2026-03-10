@@ -26,9 +26,6 @@ public class StripeCustomerConfiguration : IEntityTypeConfiguration<StripeCustom
             .IsUnique()
             .HasDatabaseName("UQ_StripeCustomers_UserId");
 
-        builder.HasIndex(sc => sc.UserId)
-            .HasDatabaseName("IX_StripeCustomers_UserId");
-
         builder.HasOne(sc => sc.User)
             .WithOne(u => u.StripeCustomer)
             .HasForeignKey<StripeCustomer>(sc => sc.UserId)
