@@ -8,6 +8,7 @@ using UtilityMenuSite.Core.Models;
 using UtilityMenuSite.Data.Models;
 using UtilityMenuSite.Infrastructure.Configuration;
 using UtilityMenuSite.Services.Licensing;
+using UtilityMenuSite.Core.Exceptions;
 
 namespace UtilityMenuSite.Tests.Services;
 
