@@ -1242,25 +1242,25 @@ namespace UtilityMenuSite.Migrations
                     b.HasOne("UtilityMenuSite.Data.Models.Licence", "Licence")
                         .WithMany("UsageEvents")
                         .HasForeignKey("LicenceId")
-                        .OnDelete(DeleteBehavior.SetNull)
+                        .OnDelete(DeleteBehavior.NoAction)
                         .HasConstraintName("FK_UsageEvents_Licences");
 
                     b.HasOne("UtilityMenuSite.Data.Models.Machine", "Machine")
                         .WithMany("UsageEvents")
                         .HasForeignKey("MachineId")
-                        .OnDelete(DeleteBehavior.SetNull)
+                        .OnDelete(DeleteBehavior.NoAction)
                         .HasConstraintName("FK_UsageEvents_Machines");
 
                     b.HasOne("UtilityMenuSite.Data.Models.Module", "Module")
                         .WithMany("UsageEvents")
                         .HasForeignKey("ModuleId")
-                        .OnDelete(DeleteBehavior.SetNull)
+                        .OnDelete(DeleteBehavior.NoAction)
                         .HasConstraintName("FK_UsageEvents_Modules");
 
                     b.HasOne("UtilityMenuSite.Data.Models.User", "User")
                         .WithMany("UsageEvents")
                         .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.SetNull)
+                        .OnDelete(DeleteBehavior.NoAction)
                         .HasConstraintName("FK_UsageEvents_Users");
 
                     b.Navigation("Licence");

@@ -498,26 +498,22 @@ namespace UtilityMenuSite.Migrations
                         name: "FK_UsageEvents_Licences",
                         column: x => x.LicenceId,
                         principalTable: "Licences",
-                        principalColumn: "LicenceId",
-                        onDelete: ReferentialAction.SetNull);
+                        principalColumn: "LicenceId");
                     table.ForeignKey(
                         name: "FK_UsageEvents_Machines",
                         column: x => x.MachineId,
                         principalTable: "Machines",
-                        principalColumn: "MachineId",
-                        onDelete: ReferentialAction.SetNull);
+                        principalColumn: "MachineId");
                     table.ForeignKey(
                         name: "FK_UsageEvents_Modules",
                         column: x => x.ModuleId,
                         principalTable: "Modules",
-                        principalColumn: "ModuleId",
-                        onDelete: ReferentialAction.SetNull);
+                        principalColumn: "ModuleId");
                     table.ForeignKey(
                         name: "FK_UsageEvents_Users",
                         column: x => x.UserId,
                         principalTable: "Users",
-                        principalColumn: "UserId",
-                        onDelete: ReferentialAction.SetNull);
+                        principalColumn: "UserId");
                 });
 
             migrationBuilder.InsertData(
