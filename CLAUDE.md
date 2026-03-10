@@ -140,6 +140,10 @@ dotnet ef database update
 dotnet ef migrations script --idempotent -o migrations.sql
 ```
 
+## TODO
+
+- **Dev environment**: `deploy-dev.yml` triggers on `feature/**` pushes and requires `DEV_CONNECTION_STRING` and `DEV_AZURE_CREDENTIALS` GitHub secrets. Either create a Dev Azure App Service and add these secrets, or delete `deploy-dev.yml` if a dev environment is not needed.
+
 ## Key Design Decisions
 
 - **Stripe refactor**: All Stripe payment logic lives in this web app only. The Excel add-in calls only the `/api/licence/*` and `/api/checkout/*` endpoints — it never touches Stripe directly.
