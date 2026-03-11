@@ -143,6 +143,8 @@ using (var scope = app.Services.CreateScope())
         // Apply pending migrations on startup. Safe because migrations are idempotent.
         // For zero-downtime deployments, run migrations separately before deploying.
         await db.Database.MigrateAsync();
+        // Seed roles in all environments — roles must exist before any user can register.
+        await SeedData.SeedRolesAsync(scope.ServiceProvider);
     }
 }
 
