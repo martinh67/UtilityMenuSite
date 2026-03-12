@@ -22,7 +22,7 @@
     <AlertBanner Message="@_errorMessage" Type="danger" />
 }
 
-<EditForm Model="_model" OnValidSubmit="HandleRegister" method="post" Enhance="true">
+<EditForm Model="_model" OnValidSubmit="HandleRegister" method="post">
     <AntiforgeryToken />
     <DataAnnotationsValidator />
 
@@ -80,21 +80,40 @@
         };
 
         var result = await UserManager.CreateAsync(identityUser, _model.Password);
-
         if (!result.Succeeded)
         {
             _errorMessage = string.Join(" ", result.Errors.Select(e => e.Description));
             return;
         }
 
-        await UserManager.AddToRoleAsync(identityUser, "User");
+        // All steps after CreateAsync are wrapped so that a failure rolls back the
+        // Identity user, preventing orphaned AspNetUsers records.
+        try
+        {
+            var roleResult = await UserManager.AddToRoleAsync(identityUser, "User");
+            if (!roleResult.Succeeded)
+                Logger.LogWarning("AddToRoleAsync failed for {Email}: {Errors}",
+                    identityUser.Email, string.Join(", ", roleResult.Errors.Select(e => e.Description)));
 
-        await UserService.RegisterFromIdentityAsync(_model.Email!, identityUser.Id);
+            await UserService.RegisterFromIdentityAsync(_model.Email!, identityUser.Id);
 
-        await SignInManager.SignInAsync(identityUser, isPersistent: true);
+            // PasswordSignInAsync uses the same codepath as Login and correctly
+            // sets the auth cookie in SSR POST context.
+            await SignInManager.PasswordSignInAsync(
+                _model.Email!, _model.Password, isPersistent: true, lockoutOnFailure: false);
 
-        Logger.LogInformation("New user registered: {Email}", _model.Email);
+            Logger.LogInformation("New user registered: {Email}", _model.Email);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Registration failed for {Email} after Identity user was created — rolling back", identityUser.Email);
+            await UserManager.DeleteAsync(identityUser);
+            _errorMessage = "Registration failed. Please try again.";
+            return;
+        }
 
+        // NavigateTo throws NavigationException intentionally — Blazor SSR converts
+        // it to a redirect. It must be outside the try/catch.
         var profileReturnUrl = ReturnUrl ?? "/dashboard";
         Nav.NavigateTo($"/account/complete-profile?returnUrl={Uri.EscapeDataString(profileReturnUrl)}", forceLoad: true);
     }
