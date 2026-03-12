@@ -1,5 +1,4 @@
 @page "/account/register"
-@rendermode InteractiveServer
 @layout AuthLayout
 @using Microsoft.AspNetCore.Identity
 @inject UserManager<Data.Models.ApplicationUser> UserManager
@@ -23,7 +22,8 @@
     <AlertBanner Message="@_errorMessage" Type="danger" />
 }
 
-<EditForm Model="_model" OnValidSubmit="HandleRegister">
+<EditForm Model="_model" OnValidSubmit="HandleRegister" method="post" Enhance="true">
+    <AntiforgeryToken />
     <DataAnnotationsValidator />
 
     <div class="mb-3">
@@ -54,11 +54,7 @@
         <ValidationMessage For="() => _model.AcceptTerms" class="text-danger small" />
     </div>
 
-    <button type="submit" class="btn btn-primary w-100" disabled="@_submitting">
-        @if (_submitting)
-        {
-            <span class="spinner-border spinner-border-sm me-2"></span>
-        }
+    <button type="submit" class="btn btn-primary w-100">
         Create Account
     </button>
 </EditForm>
@@ -67,15 +63,15 @@
     [SupplyParameterFromQuery]
     public string? ReturnUrl { get; set; }
 
-    private readonly RegisterModel _model = new();
+    [SupplyParameterFromForm]
+    private RegisterModel _model { get; set; } = default!;
+
+    protected override void OnInitialized() => _model ??= new();
+
     private string? _errorMessage;
-    private bool _submitting;
 
     private async Task HandleRegister()
     {
-        _submitting = true;
-        _errorMessage = null;
-
         var identityUser = new Data.Models.ApplicationUser
         {
             UserName = _model.Email,
@@ -88,20 +84,17 @@
         if (!result.Succeeded)
         {
             _errorMessage = string.Join(" ", result.Errors.Select(e => e.Description));
-            _submitting = false;
             return;
         }
 
         await UserManager.AddToRoleAsync(identityUser, "User");
 
-        // Create the Users record with the correct IdentityId set
         await UserService.RegisterFromIdentityAsync(_model.Email!, identityUser.Id);
 
         await SignInManager.SignInAsync(identityUser, isPersistent: true);
 
         Logger.LogInformation("New user registered: {Email}", _model.Email);
 
-        // Send to optional profile completion, which can forward to the original return URL
         var profileReturnUrl = ReturnUrl ?? "/dashboard";
         Nav.NavigateTo($"/account/complete-profile?returnUrl={Uri.EscapeDataString(profileReturnUrl)}", forceLoad: true);
     }

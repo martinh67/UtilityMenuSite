@@ -1,5 +1,4 @@
 @page "/account/login"
-@rendermode InteractiveServer
 @layout AuthLayout
 @using Microsoft.AspNetCore.Identity
 @inject SignInManager<Data.Models.ApplicationUser> SignInManager
@@ -15,7 +14,8 @@
     <AlertBanner Message="@_errorMessage" Type="danger" />
 }
 
-<EditForm Model="_model" OnValidSubmit="HandleLogin">
+<EditForm Model="_model" OnValidSubmit="HandleLogin" method="post" Enhance="true">
+    <AntiforgeryToken />
     <DataAnnotationsValidator />
 
     <div class="mb-3">
@@ -40,11 +40,7 @@
         </div>
     </div>
 
-    <button type="submit" class="btn btn-primary w-100" disabled="@_submitting">
-        @if (_submitting)
-        {
-            <span class="spinner-border spinner-border-sm me-2"></span>
-        }
+    <button type="submit" class="btn btn-primary w-100">
         Sign In
     </button>
 </EditForm>
@@ -53,15 +49,15 @@
     [SupplyParameterFromQuery]
     public string? ReturnUrl { get; set; }
 
-    private readonly LoginModel _model = new();
+    [SupplyParameterFromForm]
+    private LoginModel _model { get; set; } = default!;
+
+    protected override void OnInitialized() => _model ??= new();
+
     private string? _errorMessage;
-    private bool _submitting;
 
     private async Task HandleLogin()
     {
-        _submitting = true;
-        _errorMessage = null;
-
         var result = await SignInManager.PasswordSignInAsync(
             _model.Email!, _model.Password, _model.RememberMe, lockoutOnFailure: true);
 
@@ -74,7 +70,6 @@
         _errorMessage = result.IsLockedOut
             ? "Your account has been locked due to too many failed attempts. Try again in 15 minutes."
             : "Invalid email or password.";
-        _submitting = false;
     }
 
     private class LoginModel
