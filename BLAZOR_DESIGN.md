@@ -73,7 +73,7 @@ MySolution/
     └── Api/
 ```
 
-This structure should be used even for small projects. It keeps everything consistent and makes it easy to scale later.
+This structure should be used even for small projects. It keeps everything consistent and makes it easy to scale later on.
 
 ---
 
