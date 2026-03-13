@@ -137,10 +137,18 @@ using (var scope = app.Services.CreateScope())
 // Azure App Service terminates SSL and forwards requests over HTTP internally.
 // UseForwardedHeaders must come first so that subsequent middleware (antiforgery,
 // HTTPS redirect, auth cookies) all see the correct scheme and remote IP.
-app.UseForwardedHeaders(new ForwardedHeadersOptions
+// KnownNetworks/KnownProxies are cleared because Azure's internal load balancer
+// IP is not in the default loopback-only list — without this the middleware
+// silently ignores X-Forwarded-Proto and the scheme stays "http", breaking
+// antiforgery. Azure's infrastructure controls these headers, so trusting all
+// sources is safe inside an App Service.
+var forwardedOptions = new ForwardedHeadersOptions
 {
     ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
-});
+};
+forwardedOptions.KnownNetworks.Clear();
+forwardedOptions.KnownProxies.Clear();
+app.UseForwardedHeaders(forwardedOptions);
 
 if (!app.Environment.IsDevelopment())
 {
