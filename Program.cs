@@ -193,15 +193,21 @@ app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Diagnostic wrapper: catches AntiforgeryValidationException before it becomes a
-// silent 400 and logs the request state so failures are diagnosable in App Service logs.
+// Diagnostic wrapper: UseAntiforgery() swallows AntiforgeryValidationException
+// internally and returns 400 without re-throwing, so we check the response status
+// code after next() returns to detect and log failures.
 app.Use(async (context, next) =>
 {
-    try
-    {
-        await next(context);
-    }
-    catch (Microsoft.AspNetCore.Antiforgery.AntiforgeryValidationException ex)
+    // Read and buffer the form body before passing to the pipeline so we can
+    // still inspect it after UseAntiforgery() has consumed it.
+    if (HttpMethods.IsPost(context.Request.Method) && context.Request.HasFormContentType)
+        await context.Request.ReadFormAsync();
+
+    await next(context);
+
+    if (context.Response.StatusCode == StatusCodes.Status400BadRequest
+        && HttpMethods.IsPost(context.Request.Method)
+        && context.Request.HasFormContentType)
     {
         var logger = context.RequestServices
             .GetRequiredService<ILogger<Program>>();
@@ -213,13 +219,13 @@ app.Use(async (context, next) =>
                 .ContainsKey(".UtilityMenu.Antiforgery");
             var hasAuthCookie = context.Request.Cookies.Keys
                 .Any(k => k.StartsWith(".AspNetCore.Identity"));
-            var hasFormToken = context.Request.HasFormContentType
-                && context.Request.Form.ContainsKey("__RequestVerificationToken");
+            var hasFormToken = context.Request.Form
+                .ContainsKey("__RequestVerificationToken");
             var formTokenLength = hasFormToken
                 ? context.Request.Form["__RequestVerificationToken"].ToString().Length
                 : 0;
 
-            logger.LogError(ex,
+            logger.LogError(
                 "Antiforgery validation failed — Path={Path} Method={Method} HasAntiforgeCookie={HasAntiforgeCookie} HasAuthCookie={HasAuthCookie} HasFormToken={HasFormToken} FormTokenLength={FormTokenLength} IsAuthenticated={IsAuthenticated} Cookies=[{Cookies}]",
                 context.Request.Path,
                 context.Request.Method,
@@ -230,8 +236,6 @@ app.Use(async (context, next) =>
                 context.User.Identity?.IsAuthenticated,
                 cookieKeys);
         }
-
-        throw;
     }
 });
 
