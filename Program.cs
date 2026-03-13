@@ -27,17 +27,8 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
 // ── EF Core ─────────────────────────────────────────────────────────────────
-// SQLite for local development (macOS/Linux), SQL Server in staging/production.
-if (builder.Environment.IsDevelopment())
-{
-    builder.Services.AddDbContext<AppDbContext>(opts =>
-        opts.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
-}
-else
-{
-    builder.Services.AddDbContext<AppDbContext>(opts =>
-        opts.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
-}
+builder.Services.AddDbContext<AppDbContext>(opts =>
+    opts.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // ── ASP.NET Core Identity ────────────────────────────────────────────────────
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(opts =>
@@ -130,22 +121,10 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-
-    if (app.Environment.IsDevelopment())
-    {
-        // EnsureCreated reflects the current model directly — fast for local iteration.
-        // Migrations are used in UAT/Production only.
-        db.Database.EnsureCreated();
-        await SeedData.SeedAsync(scope.ServiceProvider);
-    }
-    else
-    {
-        // Apply pending migrations on startup. Safe because migrations are idempotent.
-        // For zero-downtime deployments, run migrations separately before deploying.
-        await db.Database.MigrateAsync();
-        // Seed roles in all environments — roles must exist before any user can register.
-        await SeedData.SeedRolesAsync(scope.ServiceProvider);
-    }
+    // Apply pending migrations on startup. Safe because migrations are idempotent.
+    await db.Database.MigrateAsync();
+    // Seed roles in all environments — roles must exist before any user can register.
+    await SeedData.SeedRolesAsync(scope.ServiceProvider);
 }
 
 // ── Middleware pipeline ────────────────────────────────────────────────────────
