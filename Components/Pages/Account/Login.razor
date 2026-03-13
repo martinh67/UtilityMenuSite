@@ -2,12 +2,11 @@
 @layout AuthLayout
 @using Microsoft.AspNetCore.Identity
 @inject SignInManager<Data.Models.ApplicationUser> SignInManager
-@inject NavigationManager Nav
 
 <PageTitle>Sign In — UtilityMenu</PageTitle>
 
 <h4 class="fw-bold mb-1">Welcome back</h4>
-<p class="text-muted small mb-4">Don't have an account? <a href="/account/register">Create one</a></p>
+<p class="text-muted small mb-4">Don't have an account? <a href="/account/register" data-enhance-nav="false">Create one</a></p>
 
 @if (!string.IsNullOrWhiteSpace(_errorMessage))
 {
@@ -54,6 +53,9 @@
 
     protected override void OnInitialized() => _model ??= new();
 
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
     private string? _errorMessage;
 
     private async Task HandleLogin()
@@ -63,7 +65,12 @@
 
         if (result.Succeeded)
         {
-            Nav.NavigateTo(ReturnUrl ?? "/dashboard", forceLoad: true);
+            // Use Response.Redirect instead of Nav.NavigateTo so Blazor Enhanced Navigation
+            // cannot intercept the 302 — the browser performs a full GET, SSR re-renders,
+            // and a fresh antiforgery token is issued for the authenticated session.
+            var destination = ReturnUrl is { Length: > 0 } r && r.StartsWith('/') && !r.StartsWith("//")
+                ? r : "/dashboard";
+            HttpContext!.Response.Redirect(destination);
             return;
         }
 
