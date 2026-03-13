@@ -48,7 +48,6 @@ builder.Services.AddAntiforgery(opts =>
     opts.Cookie.Name = ".UtilityMenu.Antiforgery";
     opts.Cookie.SecurePolicy = Microsoft.AspNetCore.Http.CookieSecurePolicy.SameAsRequest;
     opts.Cookie.SameSite = Microsoft.AspNetCore.Http.SameSiteMode.Lax;
-    opts.Cookie.HttpOnly = true;
 });
 
 // ── API Controllers ─────────────────────────────────────────────────────────

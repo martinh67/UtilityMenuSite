@@ -22,8 +22,13 @@
     <AlertBanner Message="@_errorMessage" Type="danger" />
 }
 
-<EditForm Model="_model" OnValidSubmit="HandleRegister" method="post">
-    <AntiforgeryToken />
+<!-- Register Form -->
+<EditForm 
+    Model="_model" 
+    OnValidSubmit="HandleRegister" 
+    method="post" 
+    FormName="RegisterForm">
+<AntiforgeryToken />
     <DataAnnotationsValidator />
 
     <div class="mb-3">
