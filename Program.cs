@@ -196,18 +196,33 @@ app.UseAuthorization();
 // Diagnostic wrapper: UseAntiforgery() swallows AntiforgeryValidationException
 // internally and returns 400 without re-throwing, so we check the response status
 // code after next() returns to detect and log failures.
+// IMPORTANT: all form state must be captured BEFORE calling next() — in .NET 10,
+// accessing HasFormContentType or Form after antiforgery fails throws
+// InvalidOperationException because FormFeature blocks access on a failed
+// IAntiforgeryValidationFeature.
 app.Use(async (context, next) =>
 {
-    // Read and buffer the form body before passing to the pipeline so we can
-    // still inspect it after UseAntiforgery() has consumed it.
-    if (HttpMethods.IsPost(context.Request.Method) && context.Request.HasFormContentType)
+    // Check content type via header directly to avoid FormFeature's antiforgery guard.
+    var ct = context.Request.ContentType ?? string.Empty;
+    var isFormPost = HttpMethods.IsPost(context.Request.Method)
+        && (ct.StartsWith("application/x-www-form-urlencoded", StringComparison.OrdinalIgnoreCase)
+            || ct.StartsWith("multipart/form-data", StringComparison.OrdinalIgnoreCase));
+
+    // Cache form token state before next() — not accessible after antiforgery rejects.
+    var hasFormToken = false;
+    var formTokenLength = 0;
+    if (isFormPost)
+    {
         await context.Request.ReadFormAsync();
+        hasFormToken = context.Request.Form.ContainsKey("__RequestVerificationToken");
+        formTokenLength = hasFormToken
+            ? context.Request.Form["__RequestVerificationToken"].ToString().Length
+            : 0;
+    }
 
     await next(context);
 
-    if (context.Response.StatusCode == StatusCodes.Status400BadRequest
-        && HttpMethods.IsPost(context.Request.Method)
-        && context.Request.HasFormContentType)
+    if (context.Response.StatusCode == StatusCodes.Status400BadRequest && isFormPost)
     {
         var logger = context.RequestServices
             .GetRequiredService<ILogger<Program>>();
@@ -219,11 +234,6 @@ app.Use(async (context, next) =>
                 .ContainsKey(".UtilityMenu.Antiforgery");
             var hasAuthCookie = context.Request.Cookies.Keys
                 .Any(k => k.StartsWith(".AspNetCore.Identity"));
-            var hasFormToken = context.Request.Form
-                .ContainsKey("__RequestVerificationToken");
-            var formTokenLength = hasFormToken
-                ? context.Request.Form["__RequestVerificationToken"].ToString().Length
-                : 0;
 
             logger.LogError(
                 "Antiforgery validation failed — Path={Path} Method={Method} HasAntiforgeCookie={HasAntiforgeCookie} HasAuthCookie={HasAuthCookie} HasFormToken={HasFormToken} FormTokenLength={FormTokenLength} IsAuthenticated={IsAuthenticated} Cookies=[{Cookies}]",
