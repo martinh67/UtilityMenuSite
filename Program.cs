@@ -1,4 +1,5 @@
 using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using UtilityMenuSite.Components;
@@ -121,13 +122,26 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    // Apply pending migrations on startup. Safe because migrations are idempotent.
-    await db.Database.MigrateAsync();
+    // Relational providers (SQL Server) run migrations; InMemory (used by integration
+    // tests via WebApplicationFactory) uses EnsureCreated instead.
+    if (db.Database.IsRelational())
+        await db.Database.MigrateAsync();
+    else
+        await db.Database.EnsureCreatedAsync();
     // Seed roles in all environments — roles must exist before any user can register.
     await SeedData.SeedRolesAsync(scope.ServiceProvider);
 }
 
 // ── Middleware pipeline ────────────────────────────────────────────────────────
+
+// Azure App Service terminates SSL and forwards requests over HTTP internally.
+// UseForwardedHeaders must come first so that subsequent middleware (antiforgery,
+// HTTPS redirect, auth cookies) all see the correct scheme and remote IP.
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+});
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error");
@@ -150,3 +164,6 @@ app.MapRazorComponents<UtilityMenuSite.App>()
     .AddInteractiveServerRenderMode();
 
 app.Run();
+
+// Required for WebApplicationFactory<Program> in integration tests.
+public partial class Program { }
