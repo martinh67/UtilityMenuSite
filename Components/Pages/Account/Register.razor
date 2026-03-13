@@ -23,10 +23,11 @@
 
 <!-- Register Form -->
 <EditForm 
-    Model="_model" 
-    OnValidSubmit="HandleRegister" 
-    method="post" 
-    FormName="RegisterForm">
+    Model="_model"
+    OnValidSubmit="HandleRegister"
+    method="post"
+    FormName="RegisterForm"
+    data-enhance="false">
 <AntiforgeryToken />
     <DataAnnotationsValidator />
 

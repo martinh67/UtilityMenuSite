@@ -192,6 +192,49 @@ app.UseRateLimiter();
 app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Diagnostic wrapper: catches AntiforgeryValidationException before it becomes a
+// silent 400 and logs the request state so failures are diagnosable in App Service logs.
+app.Use(async (context, next) =>
+{
+    try
+    {
+        await next(context);
+    }
+    catch (Microsoft.AspNetCore.Antiforgery.AntiforgeryValidationException ex)
+    {
+        var logger = context.RequestServices
+            .GetRequiredService<ILogger<Program>>();
+
+        if (logger.IsEnabled(LogLevel.Error))
+        {
+            var cookieKeys = string.Join(", ", context.Request.Cookies.Keys);
+            var hasAntiforgeCookie = context.Request.Cookies
+                .ContainsKey(".UtilityMenu.Antiforgery");
+            var hasAuthCookie = context.Request.Cookies.Keys
+                .Any(k => k.StartsWith(".AspNetCore.Identity"));
+            var hasFormToken = context.Request.HasFormContentType
+                && context.Request.Form.ContainsKey("__RequestVerificationToken");
+            var formTokenLength = hasFormToken
+                ? context.Request.Form["__RequestVerificationToken"].ToString().Length
+                : 0;
+
+            logger.LogError(ex,
+                "Antiforgery validation failed — Path={Path} Method={Method} HasAntiforgeCookie={HasAntiforgeCookie} HasAuthCookie={HasAuthCookie} HasFormToken={HasFormToken} FormTokenLength={FormTokenLength} IsAuthenticated={IsAuthenticated} Cookies=[{Cookies}]",
+                context.Request.Path,
+                context.Request.Method,
+                hasAntiforgeCookie,
+                hasAuthCookie,
+                hasFormToken,
+                formTokenLength,
+                context.User.Identity?.IsAuthenticated,
+                cookieKeys);
+        }
+
+        throw;
+    }
+});
+
 app.UseAntiforgery();
 
 // Health probe — used by Azure App Service / load balancer health checks.

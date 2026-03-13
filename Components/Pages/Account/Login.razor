@@ -13,7 +13,7 @@
     <AlertBanner Message="@_errorMessage" Type="danger" />
 }
 
-<EditForm Model="_model" OnValidSubmit="HandleLogin" method="post" FormName="LoginForm">
+<EditForm Model="_model" OnValidSubmit="HandleLogin" method="post" FormName="LoginForm" data-enhance="false">
     <AntiforgeryToken />
     <DataAnnotationsValidator />
 
