@@ -1,4 +1,5 @@
 using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -22,6 +23,33 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 builder.Services.AddCascadingAuthenticationState();
+
+// ── Data Protection ───────────────────────────────────────────────────────────
+// Keys must survive app restarts (deployments restart the app, invalidating any
+// in-memory keys and making antiforgery tokens generated before the restart
+// unverifiable after it). Azure App Service exposes %HOME% which is backed by
+// Azure Files and persists across restarts and deployments.
+// SetApplicationName pins the key-purpose string so it doesn't change when the
+// content root path changes between deployments.
+var dpKeysPath = Path.Combine(
+    Environment.GetEnvironmentVariable("HOME") ?? builder.Environment.ContentRootPath,
+    "ASP.NET", "DataProtection-Keys");
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(new System.IO.DirectoryInfo(dpKeysPath))
+    .SetApplicationName("UtilityMenuSite");
+
+// ── Antiforgery ───────────────────────────────────────────────────────────────
+// SecurePolicy = SameAsRequest: cookie gets Secure=true when the request scheme
+// is https (which it is after UseForwardedHeaders runs). This ensures the cookie
+// is issued correctly behind Azure's TLS-terminating proxy without being
+// over-restricted to always-https (which would break local http development).
+builder.Services.AddAntiforgery(opts =>
+{
+    opts.Cookie.Name = ".UtilityMenu.Antiforgery";
+    opts.Cookie.SecurePolicy = Microsoft.AspNetCore.Http.CookieSecurePolicy.SameAsRequest;
+    opts.Cookie.SameSite = Microsoft.AspNetCore.Http.SameSiteMode.Strict;
+    opts.Cookie.HttpOnly = true;
+});
 
 // ── API Controllers ─────────────────────────────────────────────────────────
 builder.Services.AddControllers();
@@ -52,6 +80,9 @@ builder.Services.ConfigureApplicationCookie(opts =>
     opts.AccessDeniedPath = "/account/access-denied";
     opts.ExpireTimeSpan = TimeSpan.FromDays(30);
     opts.SlidingExpiration = true;
+    // Consistent with the antiforgery cookie — Secure only when the request is https,
+    // which it will be in Azure (scheme set by UseForwardedHeaders).
+    opts.Cookie.SecurePolicy = Microsoft.AspNetCore.Http.CookieSecurePolicy.SameAsRequest;
 });
 
 // ── Authorization ────────────────────────────────────────────────────────────
@@ -146,7 +177,7 @@ var forwardedOptions = new ForwardedHeadersOptions
 {
     ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
 };
-forwardedOptions.KnownNetworks.Clear();
+forwardedOptions.KnownIPNetworks.Clear();
 forwardedOptions.KnownProxies.Clear();
 app.UseForwardedHeaders(forwardedOptions);
 
