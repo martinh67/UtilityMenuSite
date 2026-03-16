@@ -64,5 +64,14 @@ public static class SeedData
             });
             await db.SaveChangesAsync();
         }
+
+        // Promote known admin accounts to the Admin role if they've already registered.
+        var adminEmails = new[] { "martin.hanna@tuxsoftware.co.uk" };
+        foreach (var email in adminEmails)
+        {
+            var user = await userManager.FindByEmailAsync(email);
+            if (user is not null && !await userManager.IsInRoleAsync(user, "Admin"))
+                await userManager.AddToRoleAsync(user, "Admin");
+        }
     }
 }
