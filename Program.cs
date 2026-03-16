@@ -18,6 +18,19 @@ using UtilityMenuSite.Services.User;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ── Application Insights ─────────────────────────────────────────────────────
+// Requires package: Microsoft.ApplicationInsights.AspNetCore
+// Connection string is read from ApplicationInsights:ConnectionString in config
+// (set as an Azure App Service environment variable in production/UAT).
+// Comment this block out if Application Insights is not yet provisioned.
+var aiConnectionString = builder.Configuration["ApplicationInsights:ConnectionString"];
+if (!string.IsNullOrWhiteSpace(aiConnectionString))
+{
+    builder.Services.AddApplicationInsightsTelemetry(opts =>
+        opts.ConnectionString = aiConnectionString);
+}
+
+
 // ── Blazor ──────────────────────────────────────────────────────────────────
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
@@ -137,18 +150,50 @@ builder.Services.AddHttpContextAccessor();
 
 var app = builder.Build();
 
+// ── Startup diagnostics ───────────────────────────────────────────────────────
+var startupLogger = app.Services.GetRequiredService<ILogger<Program>>();
+
+startupLogger.LogInformation("UtilityMenuSite starting — Environment: {Environment}", app.Environment.EnvironmentName);
+
+if (string.IsNullOrWhiteSpace(builder.Configuration["Stripe:SecretKey"]))
+    startupLogger.LogWarning("Stripe:SecretKey is not configured — payment endpoints will fail");
+
+if (string.IsNullOrWhiteSpace(builder.Configuration["Licensing:HmacSigningKey"]))
+    startupLogger.LogWarning("Licensing:HmacSigningKey is not configured — HMAC signatures will be empty");
+
+if (string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString("DefaultConnection")))
+    startupLogger.LogCritical("ConnectionStrings:DefaultConnection is not configured — the application cannot start");
+
+if (string.IsNullOrWhiteSpace(builder.Configuration["ApplicationInsights:ConnectionString"]))
+    startupLogger.LogWarning("ApplicationInsights:ConnectionString is not set — telemetry will not be sent to Azure Monitor");
+
 // ── Database startup ──────────────────────────────────────────────────────────
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     // Relational providers (SQL Server) run migrations; InMemory (used by integration
     // tests via WebApplicationFactory) uses EnsureCreated instead.
-    if (db.Database.IsRelational())
-        await db.Database.MigrateAsync();
-    else
-        await db.Database.EnsureCreatedAsync();
+    try
+    {
+        if (db.Database.IsRelational())
+        {
+            await db.Database.MigrateAsync();
+            startupLogger.LogInformation("Database migrations applied successfully");
+        }
+        else
+        {
+            await db.Database.EnsureCreatedAsync();
+        }
+    }
+    catch (Exception ex)
+    {
+        startupLogger.LogCritical(ex, "Database migration failed — the application cannot start");
+        throw;
+    }
+
     // Seed roles and promote known admin accounts on every startup.
     await SeedData.SeedAsync(scope.ServiceProvider);
+    startupLogger.LogInformation("Seed data applied successfully");
 }
 
 // ── Middleware pipeline ────────────────────────────────────────────────────────

@@ -2,6 +2,7 @@
 @layout AuthLayout
 @using Microsoft.AspNetCore.Identity
 @inject SignInManager<Data.Models.ApplicationUser> SignInManager
+@inject ILogger<Login> Logger
 
 <PageTitle>Sign In — UtilityMenu</PageTitle>
 
@@ -64,6 +65,7 @@
 
         if (result.Succeeded)
         {
+            Logger.LogInformation("User {Email} signed in successfully", _model.Email);
             // Use Response.Redirect instead of Nav.NavigateTo so Blazor Enhanced Navigation
             // cannot intercept the 302 — the browser performs a full GET, SSR re-renders,
             // and a fresh antiforgery token is issued for the authenticated session.
@@ -73,9 +75,16 @@
             return;
         }
 
-        _errorMessage = result.IsLockedOut
-            ? "Your account has been locked due to too many failed attempts. Try again in 15 minutes."
-            : "Invalid email or password.";
+        if (result.IsLockedOut)
+        {
+            Logger.LogWarning("Account lockout for {Email}", _model.Email);
+            _errorMessage = "Your account has been locked due to too many failed attempts. Try again in 15 minutes.";
+        }
+        else
+        {
+            Logger.LogWarning("Failed sign-in attempt for {Email}", _model.Email);
+            _errorMessage = "Invalid email or password.";
+        }
     }
 
     private class LoginModel

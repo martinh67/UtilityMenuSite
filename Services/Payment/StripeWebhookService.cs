@@ -110,10 +110,12 @@ public class StripeWebhookService : IStripeWebhookService
             record.FailedAt = null;
             record.ErrorMessage = null;
             await _licenceRepo.UpdateWebhookEventAsync(record, ct);
+            _logger.LogInformation("Successfully retried webhook event {WebhookEventId} ({EventType})", webhookEventId, record.EventType);
             return true;
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Retry failed for webhook event {WebhookEventId} ({EventType})", webhookEventId, record.EventType);
             record.FailedAt = DateTime.UtcNow;
             record.ErrorMessage = ex.ToString();
             await _licenceRepo.UpdateWebhookEventAsync(record, ct);
@@ -178,7 +180,7 @@ public class StripeWebhookService : IStripeWebhookService
             licenceType: isSubscription ? "individual" : "lifetime",
             ct: ct);
 
-        _logger.LogInformation("Provisioned licence {LicenceKey} for user {Email}", licenceKey, email);
+        _logger.LogInformation("Provisioned licence {LicenceKey} for user {Email} via session {SessionId}", licenceKey, email, session.Id);
     }
 
     private async Task HandleInvoicePaidAsync(Invoice invoice, CancellationToken ct)

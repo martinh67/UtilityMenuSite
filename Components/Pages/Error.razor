@@ -1,5 +1,6 @@
 @page "/Error"
 @using Microsoft.AspNetCore.Diagnostics
+@inject ILogger<Error> Logger
 
 <PageTitle>Error — UtilityMenu</PageTitle>
 
@@ -11,3 +12,17 @@
         <a href="/" class="btn btn-primary mt-3">Return Home</a>
     </div>
 </div>
+
+@code {
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    protected override void OnInitialized()
+    {
+        var feature = HttpContext?.Features.Get<IExceptionHandlerPathFeature>();
+        if (feature?.Error is { } ex)
+        {
+            Logger.LogError(ex, "Unhandled exception on path {Path}", feature.Path);
+        }
+    }
+}

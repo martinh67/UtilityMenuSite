@@ -68,7 +68,9 @@ public class BlogService : IBlogService
             UpdatedAt = DateTime.UtcNow
         };
 
-        return await _blogRepo.CreateAsync(post, ct);
+        var created = await _blogRepo.CreateAsync(post, ct);
+        _logger.LogInformation("Created blog post {PostId} '{Title}' (published: {IsPublished})", created.PostId, created.Title, created.IsPublished);
+        return created;
     }
 
     public async Task<BlogPost> UpdatePostAsync(Guid postId, CreateBlogPostDto dto, CancellationToken ct = default)
@@ -92,11 +94,15 @@ public class BlogService : IBlogService
         post.IsPublished = dto.IsPublished;
 
         await _blogRepo.UpdateAsync(post, ct);
+        _logger.LogInformation("Updated blog post {PostId} '{Title}' (published: {IsPublished})", post.PostId, post.Title, post.IsPublished);
         return post;
     }
 
     public async Task DeletePostAsync(Guid postId, CancellationToken ct = default)
-        => await _blogRepo.DeleteAsync(postId, ct);
+    {
+        await _blogRepo.DeleteAsync(postId, ct);
+        _logger.LogWarning("Deleted blog post {PostId}", postId);
+    }
 
     public async Task PublishPostAsync(Guid postId, CancellationToken ct = default)
     {
@@ -106,6 +112,7 @@ public class BlogService : IBlogService
         post.IsPublished = true;
         post.PublishedAt = DateTime.UtcNow;
         await _blogRepo.UpdateAsync(post, ct);
+        _logger.LogInformation("Published blog post {PostId} '{Title}'", post.PostId, post.Title);
     }
 
     private static string GenerateSlug(string title)
