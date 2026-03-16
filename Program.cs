@@ -38,17 +38,6 @@ builder.Services.AddDataProtection()
     .PersistKeysToFileSystem(new System.IO.DirectoryInfo(dpKeysPath))
     .SetApplicationName("UtilityMenuSite");
 
-// ── Antiforgery ───────────────────────────────────────────────────────────────
-// SecurePolicy = SameAsRequest: cookie gets Secure=true when the request scheme
-// is https (which it is after UseForwardedHeaders runs). This ensures the cookie
-// is issued correctly behind Azure's TLS-terminating proxy without being
-// over-restricted to always-https (which would break local http development).
-builder.Services.AddAntiforgery(opts =>
-{
-    opts.Cookie.Name = ".UtilityMenu.Antiforgery";
-    opts.Cookie.SecurePolicy = Microsoft.AspNetCore.Http.CookieSecurePolicy.SameAsRequest;
-    opts.Cookie.SameSite = Microsoft.AspNetCore.Http.SameSiteMode.Lax;
-});
 
 // ── API Controllers ─────────────────────────────────────────────────────────
 builder.Services.AddControllers();
@@ -192,62 +181,6 @@ app.UseRateLimiter();
 app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
-
-// Diagnostic wrapper: UseAntiforgery() swallows AntiforgeryValidationException
-// internally and returns 400 without re-throwing, so we check the response status
-// code after next() returns to detect and log failures.
-// IMPORTANT: all form state must be captured BEFORE calling next() — in .NET 10,
-// accessing HasFormContentType or Form after antiforgery fails throws
-// InvalidOperationException because FormFeature blocks access on a failed
-// IAntiforgeryValidationFeature.
-app.Use(async (context, next) =>
-{
-    // Check content type via header directly to avoid FormFeature's antiforgery guard.
-    var ct = context.Request.ContentType ?? string.Empty;
-    var isFormPost = HttpMethods.IsPost(context.Request.Method)
-        && (ct.StartsWith("application/x-www-form-urlencoded", StringComparison.OrdinalIgnoreCase)
-            || ct.StartsWith("multipart/form-data", StringComparison.OrdinalIgnoreCase));
-
-    // Cache form token state before next() — not accessible after antiforgery rejects.
-    var hasFormToken = false;
-    var formTokenLength = 0;
-    if (isFormPost)
-    {
-        await context.Request.ReadFormAsync();
-        hasFormToken = context.Request.Form.ContainsKey("__RequestVerificationToken");
-        formTokenLength = hasFormToken
-            ? context.Request.Form["__RequestVerificationToken"].ToString().Length
-            : 0;
-    }
-
-    await next(context);
-
-    if (context.Response.StatusCode == StatusCodes.Status400BadRequest && isFormPost)
-    {
-        var logger = context.RequestServices
-            .GetRequiredService<ILogger<Program>>();
-
-        if (logger.IsEnabled(LogLevel.Error))
-        {
-            var cookieKeys = string.Join(", ", context.Request.Cookies.Keys);
-            var hasAntiforgeCookie = context.Request.Cookies
-                .ContainsKey(".UtilityMenu.Antiforgery");
-            var hasAuthCookie = context.Request.Cookies.Keys
-                .Any(k => k.StartsWith(".AspNetCore.Identity"));
-
-            logger.LogError(
-                "Antiforgery validation failed — Path={Path} Method={Method} HasAntiforgeCookie={HasAntiforgeCookie} HasAuthCookie={HasAuthCookie} HasFormToken={HasFormToken} FormTokenLength={FormTokenLength} IsAuthenticated={IsAuthenticated} Cookies=[{Cookies}]",
-                context.Request.Path,
-                context.Request.Method,
-                hasAntiforgeCookie,
-                hasAuthCookie,
-                hasFormToken,
-                formTokenLength,
-                context.User.Identity?.IsAuthenticated,
-                cookieKeys);
-        }
-    }
-});
 
 app.UseAntiforgery();
 
