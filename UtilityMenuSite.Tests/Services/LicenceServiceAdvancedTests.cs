@@ -327,6 +327,39 @@ public class LicenceServiceAdvancedTests
         _repoMock.Verify(r => r.CreateStripeCustomerAsync(It.IsAny<StripeCustomer>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    // ── GetActiveMachinesAsync ────────────────────────────────────────────────
+
+    [Fact]
+    public async Task GetActiveMachines_DelegatesToRepository()
+    {
+        var licenceId = Guid.NewGuid();
+        var machines  = new List<Machine>
+        {
+            new() { MachineId = Guid.NewGuid(), MachineName = "DESKTOP-A", IsActive = true, FirstSeenAt = DateTime.UtcNow, LastSeenAt = DateTime.UtcNow },
+            new() { MachineId = Guid.NewGuid(), MachineName = "LAPTOP-B",  IsActive = true, FirstSeenAt = DateTime.UtcNow, LastSeenAt = DateTime.UtcNow }
+        };
+
+        _repoMock.Setup(r => r.GetActiveMachinesAsync(licenceId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(machines);
+
+        var result = await CreateSut().GetActiveMachinesAsync(licenceId);
+
+        result.Should().HaveCount(2);
+        result.Should().BeSameAs(machines);
+    }
+
+    [Fact]
+    public async Task GetActiveMachines_WhenNoMachines_ReturnsEmptyList()
+    {
+        var licenceId = Guid.NewGuid();
+        _repoMock.Setup(r => r.GetActiveMachinesAsync(licenceId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<Machine>());
+
+        var result = await CreateSut().GetActiveMachinesAsync(licenceId);
+
+        result.Should().BeEmpty();
+    }
+
     // ── GetActiveLicenceAsync / GetSubscriptionAsync ──────────────────────────
 
     [Fact]

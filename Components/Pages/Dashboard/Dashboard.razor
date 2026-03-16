@@ -1,19 +1,17 @@
 @page "/dashboard"
 @rendermode InteractiveServer
 @layout DashboardLayout
-@attribute [Microsoft.AspNetCore.Authorization.Authorize]
-@using Microsoft.AspNetCore.Components.Authorization
+@attribute [Authorize]
 @using Microsoft.AspNetCore.Identity
 @inject AuthenticationStateProvider AuthProvider
 @inject UserManager<Data.Models.ApplicationUser> UserManager
 @inject IUserService UserService
 @inject ILicenceService LicenceService
-@inject IStripeService StripeService
 @inject IVersionManifestService VersionService
 @inject NavigationManager Nav
 @inject ILogger<Dashboard> Logger
 
-<PageTitle>Dashboard — UtilityMenu</PageTitle>
+<PageTitle>Overview — UtilityMenu Dashboard</PageTitle>
 
 @if (_loading)
 {
@@ -40,179 +38,167 @@ else
         <AlertBanner Message="@_message" Type="@_messageType" />
     }
 
-    <div class="row g-4">
-        <!-- Licence Status Card -->
-        <div class="col-md-6">
-            <div class="card h-100 border-0 shadow-sm">
-                <div class="card-header bg-transparent border-0 fw-semibold">
-                    <i class="bi bi-key me-2 text-primary"></i>Licence
-                </div>
-                <div class="card-body">
-                    @if (_licence is not null)
-                    {
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <span class="badge @(_licence.IsActive ? "bg-success" : "bg-danger") fs-6">
+    <!-- Stat Cards -->
+    <div class="row g-4 mb-4">
+        <!-- Licence -->
+        <div class="col-sm-6 col-xl-3">
+            <a href="/dashboard/licence" class="text-decoration-none">
+                <div class="card border-0 shadow-sm h-100 stat-card">
+                    <div class="card-body d-flex flex-column gap-2">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <span class="text-muted small fw-semibold text-uppercase">Licence</span>
+                            <i class="bi bi-key fs-5 text-primary"></i>
+                        </div>
+                        @if (_licence is not null)
+                        {
+                            <div class="fs-5 fw-bold text-dark">@_licence.LicenceType.ToUpperInvariant()</div>
+                            <span class="badge @(_licence.IsActive ? "bg-success-subtle text-success" : "bg-danger-subtle text-danger") align-self-start">
                                 @(_licence.IsActive ? "Active" : "Inactive")
                             </span>
-                            <span class="badge bg-light text-dark">@_licence.LicenceType.ToUpperInvariant()</span>
+                        }
+                        else
+                        {
+                            <div class="fs-5 fw-bold text-dark">Free</div>
+                            <span class="badge bg-secondary-subtle text-secondary align-self-start">No licence</span>
+                        }
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <!-- Subscription -->
+        <div class="col-sm-6 col-xl-3">
+            <a href="/dashboard/billing" class="text-decoration-none">
+                <div class="card border-0 shadow-sm h-100 stat-card">
+                    <div class="card-body d-flex flex-column gap-2">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <span class="text-muted small fw-semibold text-uppercase">Subscription</span>
+                            <i class="bi bi-credit-card fs-5 text-primary"></i>
                         </div>
-                        <LicenceKeyDisplay LicenceKey="@_licence.LicenceKey" />
-                        @if (_licence.ExpiresAt.HasValue)
+                        @if (_subscription is not null)
                         {
-                            <p class="text-muted small mt-2 mb-0">
-                                Expires: @_licence.ExpiresAt.Value.ToString("MMMM d, yyyy")
-                            </p>
+                            <div class="fs-5 fw-bold text-dark">@_subscription.PlanType.ToUpperInvariant()</div>
+                            <span class="badge @GetStatusBadgeSubtle(_subscription.Status) align-self-start">@_subscription.Status</span>
                         }
-                    }
-                    else
-                    {
-                        <p class="text-muted">No active licence. <a href="/pricing">Upgrade to Pro</a></p>
-                    }
-                </div>
-            </div>
-        </div>
-
-        <!-- Subscription Card -->
-        <div class="col-md-6">
-            <div class="card h-100 border-0 shadow-sm">
-                <div class="card-header bg-transparent border-0 fw-semibold">
-                    <i class="bi bi-credit-card me-2 text-primary"></i>Subscription
-                </div>
-                <div class="card-body">
-                    @if (_subscription is not null)
-                    {
-                        <p class="mb-1"><strong>Plan:</strong> @_subscription.PlanType.ToUpperInvariant()</p>
-                        <p class="mb-1">
-                            <strong>Status:</strong>
-                            <span class="badge @GetStatusBadge(_subscription.Status)">@_subscription.Status</span>
-                        </p>
-                        @if (_subscription.CurrentPeriodEnd.HasValue)
+                        else
                         {
-                            <p class="mb-3"><strong>Renews:</strong> @_subscription.CurrentPeriodEnd.Value.ToString("MMM d, yyyy")</p>
+                            <div class="fs-5 fw-bold text-dark">—</div>
+                            <span class="badge bg-secondary-subtle text-secondary align-self-start">No plan</span>
                         }
-                        @if (_user?.StripeCustomer is not null)
-                        {
-                            <button class="btn btn-outline-primary btn-sm" @onclick="ManageBilling" disabled="@_billingLoading">
-                                @if (_billingLoading)
-                                {
-                                    <span class="spinner-border spinner-border-sm me-1"></span>
-                                }
-                                <i class="bi bi-box-arrow-up-right me-1"></i>Manage Billing
-                            </button>
-                        }
-                    }
-                    else
-                    {
-                        <p class="text-muted">No active subscription.</p>
-                        <a href="/pricing" class="btn btn-primary btn-sm">Upgrade to Pro</a>
-                    }
-                </div>
-            </div>
-        </div>
-
-        <!-- API Token Card -->
-        <div class="col-md-6">
-            <div class="card h-100 border-0 shadow-sm">
-                <div class="card-header bg-transparent border-0 fw-semibold">
-                    <i class="bi bi-shield-lock me-2 text-primary"></i>API Token
-                </div>
-                <div class="card-body">
-                    <p class="text-muted small mb-2">Use this token in the UtilityMenu add-in settings.</p>
-                    <div class="d-flex gap-2 align-items-center mb-2">
-                        <code class="p-2 bg-light border rounded flex-grow-1 text-truncate small">
-                            @(_showToken ? _user?.ApiToken : MaskToken(_user?.ApiToken))
-                        </code>
-                        <button class="btn btn-outline-secondary btn-sm" @onclick="() => _showToken = !_showToken">
-                            <i class="bi @(_showToken ? "bi-eye-slash" : "bi-eye")"></i>
-                        </button>
-                        <CopyButton TextToCopy="@(_user?.ApiToken ?? "")" />
                     </div>
-                    <button class="btn btn-outline-warning btn-sm" @onclick="RegenerateToken" disabled="@_regenerating">
-                        @if (_regenerating) { <span class="spinner-border spinner-border-sm me-1"></span> }
-                        <i class="bi bi-arrow-repeat me-1"></i>Regenerate
-                    </button>
                 </div>
-            </div>
+            </a>
         </div>
 
-        <!-- Active Machines Card -->
-        <div class="col-md-6">
-            <div class="card h-100 border-0 shadow-sm">
-                <div class="card-header bg-transparent border-0 fw-semibold">
-                    <i class="bi bi-laptop me-2 text-primary"></i>Active Machines
-                    @if (_licence is not null)
-                    {
-                        <span class="badge bg-secondary ms-2">@_machines.Count / @_licence.MaxActivations</span>
-                    }
-                </div>
-                <div class="card-body">
-                    @if (_machines.Any())
-                    {
-                        @foreach (var machine in _machines)
-                        {
-                            <div class="d-flex justify-content-between align-items-center mb-2 p-2 bg-light rounded">
-                                <div>
-                                    <strong class="small">@(machine.MachineName ?? "Unknown Machine")</strong>
-                                    <div class="text-muted" style="font-size:0.75rem;">Last seen: @machine.LastSeenAt.ToString("MMM d, yyyy")</div>
-                                </div>
-                                <button class="btn btn-outline-danger btn-sm" @onclick="() => DeactivateMachine(machine.MachineId)">
-                                    <i class="bi bi-x"></i>
-                                </button>
-                            </div>
-                        }
-                    }
-                    else
-                    {
-                        <p class="text-muted small">No machines activated yet.</p>
-                    }
-                </div>
-            </div>
-        </div>
-
-        <!-- Module Entitlements Card -->
-        @if (_licence is not null && _licence.LicenceModules.Any())
-        {
-            <div class="col-md-12">
-                <div class="card border-0 shadow-sm">
-                    <div class="card-header bg-transparent border-0 fw-semibold">
-                        <i class="bi bi-puzzle me-2 text-primary"></i>Module Entitlements
-                    </div>
-                    <div class="card-body">
-                        <div class="d-flex flex-wrap gap-2">
-                            @foreach (var lm in _licence.LicenceModules)
-                            {
-                                <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2">
-                                    <i class="bi bi-check-circle me-1"></i>@lm.Module.DisplayName
-                                </span>
-                            }
+        <!-- Devices -->
+        <div class="col-sm-6 col-xl-3">
+            <a href="/dashboard/devices" class="text-decoration-none">
+                <div class="card border-0 shadow-sm h-100 stat-card">
+                    <div class="card-body d-flex flex-column gap-2">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <span class="text-muted small fw-semibold text-uppercase">Devices</span>
+                            <i class="bi bi-laptop fs-5 text-primary"></i>
                         </div>
+                        <div class="fs-5 fw-bold text-dark">
+                            @_machineCount <span class="text-muted fw-normal fs-6">/ @(_licence?.MaxActivations ?? 2)</span>
+                        </div>
+                        <span class="text-muted small">activated machines</span>
                     </div>
                 </div>
+            </a>
+        </div>
+
+        <!-- Modules -->
+        <div class="col-sm-6 col-xl-3">
+            <a href="/dashboard/licence" class="text-decoration-none">
+                <div class="card border-0 shadow-sm h-100 stat-card">
+                    <div class="card-body d-flex flex-column gap-2">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <span class="text-muted small fw-semibold text-uppercase">Modules</span>
+                            <i class="bi bi-puzzle fs-5 text-primary"></i>
+                        </div>
+                        <div class="fs-5 fw-bold text-dark">@_moduleCount</div>
+                        <span class="text-muted small">unlocked modules</span>
+                    </div>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="row g-4">
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent border-0 fw-semibold">
+                    <i class="bi bi-lightning me-2 text-primary"></i>Quick Actions
+                </div>
+                <div class="card-body d-flex flex-column gap-2">
+                    <a href="/dashboard/licence" class="btn btn-outline-primary btn-sm text-start">
+                        <i class="bi bi-key me-2"></i>View licence key &amp; modules
+                    </a>
+                    <a href="/dashboard/billing" class="btn btn-outline-primary btn-sm text-start">
+                        <i class="bi bi-credit-card me-2"></i>Manage billing &amp; subscription
+                    </a>
+                    <a href="/dashboard/devices" class="btn btn-outline-primary btn-sm text-start">
+                        <i class="bi bi-laptop me-2"></i>Manage activated devices
+                    </a>
+                    <a href="/dashboard/settings" class="btn btn-outline-primary btn-sm text-start">
+                        <i class="bi bi-gear me-2"></i>Update profile &amp; API token
+                    </a>
+                </div>
             </div>
-        }
+        </div>
+
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent border-0 fw-semibold">
+                    <i class="bi bi-book me-2 text-primary"></i>Get Started
+                </div>
+                <div class="card-body d-flex flex-column gap-2">
+                    @if (_version is not null)
+                    {
+                        <a href="/download" class="btn btn-outline-secondary btn-sm text-start">
+                            <i class="bi bi-download me-2"></i>Download add-in v@_version.Version
+                        </a>
+                    }
+                    <a href="/docs" class="btn btn-outline-secondary btn-sm text-start">
+                        <i class="bi bi-file-earmark-text me-2"></i>Read the documentation
+                    </a>
+                    @if (_licence is null)
+                    {
+                        <a href="/pricing" class="btn btn-primary btn-sm text-start">
+                            <i class="bi bi-arrow-up-circle me-2"></i>Upgrade to Pro
+                        </a>
+                    }
+                </div>
+            </div>
+        </div>
     </div>
 }
+
+<style>
+    .stat-card { transition: box-shadow 0.15s, transform 0.15s; cursor: pointer; }
+    .stat-card:hover { box-shadow: 0 .5rem 1rem rgba(0,0,0,.1) !important; transform: translateY(-2px); }
+</style>
 
 @code {
     private Data.Models.User? _user;
     private Data.Models.Licence? _licence;
     private Data.Models.Subscription? _subscription;
-    private List<Data.Models.Machine> _machines = new();
     private Core.Models.VersionManifest? _version;
+    private int _machineCount;
+    private int _moduleCount;
     private bool _loading = true;
-    private bool _billingLoading;
-    private bool _regenerating;
-    private bool _showToken;
     private string? _message;
     private string _messageType = "info";
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
-        await LoadDashboardAsync();
+        await LoadAsync();
     }
 
-    private async Task LoadDashboardAsync()
+    private async Task LoadAsync()
     {
         try
         {
@@ -223,12 +209,9 @@ else
             _user = await UserService.GetByIdentityIdAsync(identityUser.Id);
             if (_user is null)
             {
-                // First time: create user record
                 _user = await UserService.RegisterOrGetAsync(identityUser.Email!);
                 if (_user.IdentityId == string.Empty)
-                {
                     _user.IdentityId = identityUser.Id;
-                }
             }
 
             _user = await UserService.GetWithLicenceAsync(_user.UserId);
@@ -237,11 +220,15 @@ else
             _version = await VersionService.GetLatestAsync();
 
             if (_licence is not null)
-                _machines = await LicenceService.GetActiveMachinesAsync(_licence.LicenceId);
+            {
+                var machines = await LicenceService.GetActiveMachinesAsync(_licence.LicenceId);
+                _machineCount = machines.Count;
+                _moduleCount = _licence.LicenceModules?.Count ?? 0;
+            }
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Failed to load dashboard");
+            Logger.LogError(ex, "Failed to load dashboard overview");
             _message = "Failed to load dashboard data.";
             _messageType = "danger";
         }
@@ -252,62 +239,13 @@ else
         }
     }
 
-    private async Task ManageBilling()
+    private static string GetStatusBadgeSubtle(string status) => status switch
     {
-        _billingLoading = true;
-        try
-        {
-            var result = await StripeService.CreateBillingPortalSessionAsync(_user!.StripeCustomer!.StripeCustomerId);
-            Nav.NavigateTo(result.Url, forceLoad: true);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Failed to create billing portal");
-            _message = "Failed to open billing portal. Please try again.";
-            _messageType = "danger";
-        }
-        _billingLoading = false;
-    }
-
-    private async Task RegenerateToken()
-    {
-        _regenerating = true;
-        try
-        {
-            var newToken = await UserService.RegenerateApiTokenAsync(_user!.UserId);
-            _user!.ApiToken = newToken;
-            _message = "API token regenerated successfully. Update your add-in settings.";
-            _messageType = "warning";
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Failed to regenerate API token");
-            _message = "Failed to regenerate token.";
-            _messageType = "danger";
-        }
-        _regenerating = false;
-    }
-
-    private async Task DeactivateMachine(Guid machineId)
-    {
-        await LicenceService.DeactivateMachineAsync(machineId);
-        _machines = await LicenceService.GetActiveMachinesAsync(_licence!.LicenceId);
-        StateHasChanged();
-    }
-
-    private static string MaskToken(string? token)
-    {
-        if (string.IsNullOrWhiteSpace(token)) return "—";
-        return token[..8] + "••••••••••••••••••••••••••••••••••••••••••••••••" + token[^4..];
-    }
-
-    private static string GetStatusBadge(string status) => status switch
-    {
-        "active" => "bg-success",
-        "trialing" => "bg-info",
-        "past_due" => "bg-warning text-dark",
-        "canceled" => "bg-danger",
-        "grace_period" => "bg-warning text-dark",
-        _ => "bg-secondary"
+        "active"       => "bg-success-subtle text-success",
+        "trialing"     => "bg-info-subtle text-info",
+        "past_due"     => "bg-warning-subtle text-warning",
+        "canceled"     => "bg-danger-subtle text-danger",
+        "grace_period" => "bg-warning-subtle text-warning",
+        _              => "bg-secondary-subtle text-secondary"
     };
 }

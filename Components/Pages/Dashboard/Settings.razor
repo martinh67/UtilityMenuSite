@@ -1,0 +1,235 @@
+@page "/dashboard/settings"
+@rendermode InteractiveServer
+@layout DashboardLayout
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Identity
+@inject AuthenticationStateProvider AuthProvider
+@inject UserManager<Data.Models.ApplicationUser> UserManager
+@inject IUserService UserService
+@inject NavigationManager Nav
+@inject ILogger<Settings> Logger
+
+<PageTitle>Settings — UtilityMenu Dashboard</PageTitle>
+
+@if (_loading)
+{
+    <LoadingSpinner Message="Loading settings..." />
+}
+else
+{
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-0">Settings</h2>
+            <p class="text-muted mb-0">Manage your profile and API token</p>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(_message))
+    {
+        <AlertBanner Message="@_message" Type="@_messageType" />
+    }
+
+    <div class="row g-4">
+        <!-- Profile -->
+        <div class="col-lg-7">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent border-0 fw-semibold">
+                    <i class="bi bi-person-circle me-2 text-primary"></i>Profile
+                </div>
+                <div class="card-body">
+                    <EditForm Model="this" OnValidSubmit="SaveProfile">
+                        <DataAnnotationsValidator />
+                        <div class="mb-3">
+                            <label class="form-label text-muted small fw-semibold">Email</label>
+                            <input class="form-control bg-light" value="@_user?.Email" disabled />
+                            <div class="form-text">Email cannot be changed here.</div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold" for="displayName">Display Name</label>
+                            <InputText id="displayName" class="form-control" @bind-Value="_displayName" placeholder="Your name" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold" for="organisation">Organisation</label>
+                            <InputText id="organisation" class="form-control" @bind-Value="_organisation" placeholder="Company or team name" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold" for="jobRole">Job Role</label>
+                            <InputText id="jobRole" class="form-control" @bind-Value="_jobRole" placeholder="e.g. Financial Analyst" />
+                        </div>
+                        <div class="mb-4">
+                            <label class="form-label small fw-semibold" for="usageInterests">Usage Interests</label>
+                            <InputTextArea id="usageInterests" class="form-control" @bind-Value="_usageInterests"
+                                           rows="3" placeholder="What do you primarily use UtilityMenu for?" />
+                        </div>
+                        <button class="btn btn-primary" type="submit" disabled="@_savingProfile">
+                            @if (_savingProfile)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2"></span>
+                            }
+                            <i class="bi bi-check-lg me-1"></i>Save Profile
+                        </button>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+
+        <!-- API Token -->
+        <div class="col-lg-5">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent border-0 fw-semibold">
+                    <i class="bi bi-shield-lock me-2 text-primary"></i>API Token
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small mb-3">
+                        This token authenticates the UtilityMenu add-in with your account.
+                        Paste it into the add-in settings in Excel.
+                    </p>
+                    <div class="d-flex gap-2 align-items-stretch mb-3">
+                        <code class="p-2 bg-light border rounded flex-grow-1 text-truncate small align-self-center">
+                            @(_showToken ? _user?.ApiToken : MaskToken(_user?.ApiToken))
+                        </code>
+                        <button class="btn btn-outline-secondary btn-sm" @onclick="() => _showToken = !_showToken"
+                                title="@(_showToken ? "Hide token" : "Show token")">
+                            <i class="bi @(_showToken ? "bi-eye-slash" : "bi-eye")"></i>
+                        </button>
+                        <CopyButton TextToCopy="@(_user?.ApiToken ?? "")" />
+                    </div>
+                    <button class="btn btn-outline-warning w-100" @onclick="RegenerateToken" disabled="@_regenerating">
+                        @if (_regenerating)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                        }
+                        <i class="bi bi-arrow-repeat me-1"></i>Regenerate Token
+                    </button>
+                    <div class="form-text mt-2">
+                        Regenerating creates a new token and invalidates the old one.
+                        You'll need to update the token in your Excel add-in settings.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Account info -->
+            <div class="card border-0 shadow-sm mt-4">
+                <div class="card-header bg-transparent border-0 fw-semibold">
+                    <i class="bi bi-info-circle me-2 text-primary"></i>Account Info
+                </div>
+                <div class="card-body">
+                    <dl class="row mb-0 small">
+                        <dt class="col-5 text-muted">Member since</dt>
+                        <dd class="col-7">@_user?.CreatedAt.ToString("MMMM d, yyyy")</dd>
+                        @if (_user?.ProfileCompletedAt.HasValue == true)
+                        {
+                            <dt class="col-5 text-muted">Profile completed</dt>
+                            <dd class="col-7">@_user.ProfileCompletedAt!.Value.ToString("MMM d, yyyy")</dd>
+                        }
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private Data.Models.User? _user;
+    private string? _displayName;
+    private string? _organisation;
+    private string? _jobRole;
+    private string? _usageInterests;
+    private bool _loading = true;
+    private bool _savingProfile;
+    private bool _regenerating;
+    private bool _showToken;
+    private string? _message;
+    private string _messageType = "info";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            var authState = await AuthProvider.GetAuthenticationStateAsync();
+            var identityUser = await UserManager.GetUserAsync(authState.User);
+            if (identityUser is null) { Nav.NavigateTo("/account/login"); return; }
+
+            _user = await UserService.GetByIdentityIdAsync(identityUser.Id);
+            if (_user is null) { Nav.NavigateTo("/dashboard"); return; }
+
+            _displayName = _user.DisplayName;
+            _organisation = _user.Organisation;
+            _jobRole = _user.JobRole;
+            _usageInterests = _user.UsageInterests;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load settings page");
+            _message = "Failed to load settings.";
+            _messageType = "danger";
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SaveProfile()
+    {
+        _savingProfile = true;
+        try
+        {
+            await UserService.UpdateProfileAsync(_user!.UserId, _displayName, _organisation, _jobRole, _usageInterests);
+            _user.DisplayName = _displayName;
+            _user.Organisation = _organisation;
+            _user.JobRole = _jobRole;
+            _user.UsageInterests = _usageInterests;
+            _message = "Profile updated successfully.";
+            _messageType = "success";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to save profile");
+            _message = "Failed to save profile. Please try again.";
+            _messageType = "danger";
+        }
+        finally
+        {
+            _savingProfile = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task RegenerateToken()
+    {
+        _regenerating = true;
+        StateHasChanged();
+        try
+        {
+            var newToken = await UserService.RegenerateApiTokenAsync(_user!.UserId);
+            _user!.ApiToken = newToken;
+            _message = "API token regenerated. Update your add-in settings with the new token.";
+            _messageType = "warning";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to regenerate API token");
+            _message = "Failed to regenerate token. Please try again.";
+            _messageType = "danger";
+        }
+        finally
+        {
+            _regenerating = false;
+            StateHasChanged();
+        }
+    }
+
+    private static string MaskToken(string? token)
+    {
+        if (string.IsNullOrWhiteSpace(token)) return "—";
+        return token[..8] + "••••••••••••••••••••••••" + token[^4..];
+    }
+}
