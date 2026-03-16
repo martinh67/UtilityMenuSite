@@ -146,12 +146,8 @@ else
             _user = await UserService.GetByIdentityIdAsync(identityUser.Id);
             if (_user is null) { Nav.NavigateTo("/dashboard"); return; }
 
-            _licence = await LicenceService.GetActiveLicenceAsync(_user.UserId);
-            if (_licence is not null)
-            {
-                var withModules = await UserService.GetWithLicenceAsync(_user.UserId);
-                _licence = withModules?.Licences?.FirstOrDefault(l => l.LicenceId == _licence.LicenceId) ?? _licence;
-            }
+            var userWithLicence = await UserService.GetWithLicenceAsync(_user.UserId);
+            _licence = userWithLicence?.Licences?.FirstOrDefault(l => l.IsActive);
         }
         catch (Exception ex)
         {

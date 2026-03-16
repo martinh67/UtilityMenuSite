@@ -32,6 +32,11 @@
                         <a class="btn btn-outline-primary btn-sm" href="/dashboard">
                             <i class="bi bi-speedometer2 me-1"></i>Dashboard
                         </a>
+                        <AuthorizeView Roles="Admin" Context="adminCtx">
+                            <a class="btn btn-outline-danger btn-sm" href="/admin">
+                                <i class="bi bi-shield-lock me-1"></i>Admin
+                            </a>
+                        </AuthorizeView>
                         <form method="post" action="/account/logout">
                             <AntiforgeryToken />
                             <button type="submit" class="btn btn-sm btn-light">Logout</button>
