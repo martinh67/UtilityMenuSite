@@ -147,8 +147,8 @@ using (var scope = app.Services.CreateScope())
         await db.Database.MigrateAsync();
     else
         await db.Database.EnsureCreatedAsync();
-    // Seed roles in all environments — roles must exist before any user can register.
-    await SeedData.SeedRolesAsync(scope.ServiceProvider);
+    // Seed roles and promote known admin accounts on every startup.
+    await SeedData.SeedAsync(scope.ServiceProvider);
 }
 
 // ── Middleware pipeline ────────────────────────────────────────────────────────
