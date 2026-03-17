@@ -32,13 +32,22 @@ public class LicenceService : ILicenceService
         var licence = await _licenceRepo.GetByKeyAsync(licenceKey, ct);
 
         if (licence is null)
+        {
+            _logger.LogDebug("ValidateLicence: key not found");
             return new LicenceValidationResult { IsValid = false, Reason = "not_found" };
+        }
 
         if (!licence.IsActive)
+        {
+            _logger.LogDebug("ValidateLicence: licence {LicenceId} is inactive", licence.LicenceId);
             return new LicenceValidationResult { IsValid = false, Reason = "inactive" };
+        }
 
         if (licence.ExpiresAt.HasValue && licence.ExpiresAt.Value < DateTime.UtcNow)
+        {
+            _logger.LogDebug("ValidateLicence: licence {LicenceId} expired at {ExpiresAt}", licence.LicenceId, licence.ExpiresAt);
             return new LicenceValidationResult { IsValid = false, Reason = "expired" };
+        }
 
         // Update last validated timestamp (fire-and-forget)
         licence.LastValidatedAt = DateTime.UtcNow;
@@ -52,6 +61,8 @@ public class LicenceService : ILicenceService
             OccurredAt = DateTime.UtcNow
         }, ct);
 
+        _logger.LogDebug("ValidateLicence: licence {LicenceId} is valid ({LicenceType})", licence.LicenceId, licence.LicenceType);
+
         return new LicenceValidationResult
         {
             IsValid = true,
@@ -63,10 +74,18 @@ public class LicenceService : ILicenceService
     public async Task<LicenceEntitlementsResult?> GetEntitlementsAsync(string licenceKey, CancellationToken ct = default)
     {
         var licence = await _licenceRepo.GetByKeyAsync(licenceKey, ct);
-        if (licence is null || !licence.IsActive) return null;
+        if (licence is null || !licence.IsActive)
+        {
+            _logger.LogDebug("GetEntitlements: licence not found or inactive");
+            return null;
+        }
 
         var now = DateTime.UtcNow;
-        if (licence.ExpiresAt.HasValue && licence.ExpiresAt.Value < now) return null;
+        if (licence.ExpiresAt.HasValue && licence.ExpiresAt.Value < now)
+        {
+            _logger.LogDebug("GetEntitlements: licence {LicenceId} has expired", licence.LicenceId);
+            return null;
+        }
 
         var modules = licence.LicenceModules
             .Where(lm => lm.Module.IsActive && (lm.ExpiresAt == null || lm.ExpiresAt > now))
@@ -86,6 +105,8 @@ public class LicenceService : ILicenceService
 
         licence.LastValidatedAt = DateTime.UtcNow;
         await _licenceRepo.UpdateAsync(licence, ct);
+
+        _logger.LogDebug("GetEntitlements: returning {ModuleCount} modules for licence {LicenceId}", modules.Count, licence.LicenceId);
 
         return new LicenceEntitlementsResult
         {
@@ -113,6 +134,11 @@ public class LicenceService : ILicenceService
             {
                 existingMachine.IsActive = true;
                 existingMachine.DeactivatedAt = null;
+                _logger.LogInformation("Re-activated machine {MachineId} on licence {LicenceId}", existingMachine.MachineId, licence.LicenceId);
+            }
+            else
+            {
+                _logger.LogDebug("Machine {MachineId} already active on licence {LicenceId} — refreshing LastSeenAt", existingMachine.MachineId, licence.LicenceId);
             }
             existingMachine.LastSeenAt = DateTime.UtcNow;
             if (request.MachineName is not null)
@@ -132,7 +158,10 @@ public class LicenceService : ILicenceService
         // Check seat limit
         var currentActiveCount = await _licenceRepo.GetActiveMachineCountAsync(licence.LicenceId, ct);
         if (currentActiveCount >= licence.MaxActivations)
+        {
+            _logger.LogWarning("Seat limit reached for licence {LicenceId}: {ActiveCount}/{MaxActivations}", licence.LicenceId, currentActiveCount, licence.MaxActivations);
             throw new SeatLimitExceededException($"Seat limit reached. This licence allows {licence.MaxActivations} active machines.");
+        }
 
         var machine = new Machine
         {
@@ -144,6 +173,9 @@ public class LicenceService : ILicenceService
             LastSeenAt = DateTime.UtcNow
         };
         await _licenceRepo.CreateMachineAsync(machine, ct);
+
+        _logger.LogInformation("New machine {MachineId} activated on licence {LicenceId} ({ActiveCount}/{MaxActivations} seats used)",
+            machine.MachineId, licence.LicenceId, currentActiveCount + 1, licence.MaxActivations);
 
         await _licenceRepo.RecordUsageEventAsync(new UsageEvent
         {
@@ -236,6 +268,8 @@ public class LicenceService : ILicenceService
             Email = email,
             CreatedAt = DateTime.UtcNow
         }, ct);
+
+        _logger.LogInformation("Created StripeCustomer record for user {UserId}", userId);
     }
 
     public async Task<Subscription> SyncSubscriptionAsync(
@@ -248,6 +282,7 @@ public class LicenceService : ILicenceService
             existing.Status = status;
             existing.UpdatedAt = DateTime.UtcNow;
             await _licenceRepo.UpdateSubscriptionAsync(existing, ct);
+            _logger.LogDebug("Updated existing subscription {StripeSubId} to status {Status}", stripeSubId, status);
             return existing;
         }
 
@@ -261,7 +296,9 @@ public class LicenceService : ILicenceService
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
-        return await _licenceRepo.CreateSubscriptionAsync(subscription, ct);
+        var created = await _licenceRepo.CreateSubscriptionAsync(subscription, ct);
+        _logger.LogInformation("Created subscription {SubscriptionId} for user {UserId} ({PlanType})", created.SubscriptionId, userId, planType);
+        return created;
     }
 
     public async Task<Licence> ProvisionLicenceAsync(

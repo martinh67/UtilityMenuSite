@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace UtilityMenuSite.Migrations
 {
     /// <inheritdoc />
-    public partial class AddUserProfileFields : Migration
+    public partial class InitialCreate : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -17,10 +17,10 @@ namespace UtilityMenuSite.Migrations
                 name: "AspNetRoles",
                 columns: table => new
                 {
-                    Id = table.Column<string>(type: "TEXT", nullable: false),
-                    Name = table.Column<string>(type: "TEXT", maxLength: 256, nullable: true),
-                    NormalizedName = table.Column<string>(type: "TEXT", maxLength: 256, nullable: true),
-                    ConcurrencyStamp = table.Column<string>(type: "TEXT", nullable: true)
+                    Id = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
+                    NormalizedName = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
+                    ConcurrencyStamp = table.Column<string>(type: "nvarchar(max)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -31,21 +31,21 @@ namespace UtilityMenuSite.Migrations
                 name: "AspNetUsers",
                 columns: table => new
                 {
-                    Id = table.Column<string>(type: "TEXT", nullable: false),
-                    UserName = table.Column<string>(type: "TEXT", maxLength: 256, nullable: true),
-                    NormalizedUserName = table.Column<string>(type: "TEXT", maxLength: 256, nullable: true),
-                    Email = table.Column<string>(type: "TEXT", maxLength: 256, nullable: true),
-                    NormalizedEmail = table.Column<string>(type: "TEXT", maxLength: 256, nullable: true),
-                    EmailConfirmed = table.Column<bool>(type: "INTEGER", nullable: false),
-                    PasswordHash = table.Column<string>(type: "TEXT", nullable: true),
-                    SecurityStamp = table.Column<string>(type: "TEXT", nullable: true),
-                    ConcurrencyStamp = table.Column<string>(type: "TEXT", nullable: true),
-                    PhoneNumber = table.Column<string>(type: "TEXT", nullable: true),
-                    PhoneNumberConfirmed = table.Column<bool>(type: "INTEGER", nullable: false),
-                    TwoFactorEnabled = table.Column<bool>(type: "INTEGER", nullable: false),
-                    LockoutEnd = table.Column<DateTimeOffset>(type: "TEXT", nullable: true),
-                    LockoutEnabled = table.Column<bool>(type: "INTEGER", nullable: false),
-                    AccessFailedCount = table.Column<int>(type: "INTEGER", nullable: false)
+                    Id = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    UserName = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
+                    NormalizedUserName = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
+                    Email = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
+                    NormalizedEmail = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
+                    EmailConfirmed = table.Column<bool>(type: "bit", nullable: false),
+                    PasswordHash = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    SecurityStamp = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    ConcurrencyStamp = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    PhoneNumber = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    PhoneNumberConfirmed = table.Column<bool>(type: "bit", nullable: false),
+                    TwoFactorEnabled = table.Column<bool>(type: "bit", nullable: false),
+                    LockoutEnd = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true),
+                    LockoutEnabled = table.Column<bool>(type: "bit", nullable: false),
+                    AccessFailedCount = table.Column<int>(type: "int", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -56,10 +56,10 @@ namespace UtilityMenuSite.Migrations
                 name: "BlogCategories",
                 columns: table => new
                 {
-                    CategoryId = table.Column<Guid>(type: "TEXT", nullable: false, defaultValueSql: "NEWSEQUENTIALID()"),
-                    Name = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
-                    Slug = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
-                    SortOrder = table.Column<int>(type: "INTEGER", nullable: false, defaultValue: 0)
+                    CategoryId = table.Column<Guid>(type: "uniqueidentifier", nullable: false, defaultValueSql: "NEWSEQUENTIALID()"),
+                    Name = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    Slug = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    SortOrder = table.Column<int>(type: "int", nullable: false, defaultValue: 0)
                 },
                 constraints: table =>
                 {
@@ -70,16 +70,16 @@ namespace UtilityMenuSite.Migrations
                 name: "ContactSubmissions",
                 columns: table => new
                 {
-                    SubmissionId = table.Column<Guid>(type: "TEXT", nullable: false, defaultValueSql: "NEWSEQUENTIALID()"),
-                    Name = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
-                    Email = table.Column<string>(type: "TEXT", maxLength: 256, nullable: false),
-                    Subject = table.Column<string>(type: "TEXT", maxLength: 300, nullable: false),
-                    Message = table.Column<string>(type: "TEXT", nullable: false),
-                    IsResolved = table.Column<bool>(type: "INTEGER", nullable: false, defaultValue: false),
-                    ResolvedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    Notes = table.Column<string>(type: "TEXT", nullable: true),
-                    SubmittedAt = table.Column<DateTime>(type: "TEXT", nullable: false, defaultValueSql: "SYSUTCDATETIME()"),
-                    IpAddress = table.Column<string>(type: "TEXT", maxLength: 45, nullable: true)
+                    SubmissionId = table.Column<Guid>(type: "uniqueidentifier", nullable: false, defaultValueSql: "NEWSEQUENTIALID()"),
+                    Name = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    Email = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: false),
+                    Subject = table.Column<string>(type: "nvarchar(300)", maxLength: 300, nullable: false),
+                    Message = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    IsResolved = table.Column<bool>(type: "bit", nullable: false, defaultValue: false),
+                    ResolvedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    Notes = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    SubmittedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "SYSUTCDATETIME()"),
+                    IpAddress = table.Column<string>(type: "nvarchar(45)", maxLength: 45, nullable: true)
                 },
                 constraints: table =>
                 {
@@ -90,14 +90,14 @@ namespace UtilityMenuSite.Migrations
                 name: "Modules",
                 columns: table => new
                 {
-                    ModuleId = table.Column<Guid>(type: "TEXT", nullable: false, defaultValueSql: "NEWSEQUENTIALID()"),
-                    ModuleName = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
-                    DisplayName = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
-                    Description = table.Column<string>(type: "TEXT", maxLength: 500, nullable: true),
-                    Tier = table.Column<string>(type: "TEXT", maxLength: 30, nullable: false),
-                    IsActive = table.Column<bool>(type: "INTEGER", nullable: false, defaultValue: true),
-                    SortOrder = table.Column<int>(type: "INTEGER", nullable: false, defaultValue: 0),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false, defaultValueSql: "SYSUTCDATETIME()")
+                    ModuleId = table.Column<Guid>(type: "uniqueidentifier", nullable: false, defaultValueSql: "NEWSEQUENTIALID()"),
+                    ModuleName = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    DisplayName = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    Description = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    Tier = table.Column<string>(type: "nvarchar(30)", maxLength: 30, nullable: false),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false, defaultValue: true),
+                    SortOrder = table.Column<int>(type: "int", nullable: false, defaultValue: 0),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "SYSUTCDATETIME()")
                 },
                 constraints: table =>
                 {
@@ -108,14 +108,14 @@ namespace UtilityMenuSite.Migrations
                 name: "StripeWebhookEvents",
                 columns: table => new
                 {
-                    WebhookEventId = table.Column<Guid>(type: "TEXT", nullable: false, defaultValueSql: "NEWSEQUENTIALID()"),
-                    StripeEventId = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
-                    EventType = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
-                    RawPayload = table.Column<string>(type: "TEXT", nullable: false),
-                    ProcessedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    FailedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    ErrorMessage = table.Column<string>(type: "TEXT", nullable: true),
-                    ReceivedAt = table.Column<DateTime>(type: "TEXT", nullable: false, defaultValueSql: "SYSUTCDATETIME()")
+                    WebhookEventId = table.Column<Guid>(type: "uniqueidentifier", nullable: false, defaultValueSql: "NEWSEQUENTIALID()"),
+                    StripeEventId = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    EventType = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    RawPayload = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    ProcessedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    FailedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    ErrorMessage = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    ReceivedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "SYSUTCDATETIME()")
                 },
                 constraints: table =>
                 {
@@ -126,19 +126,19 @@ namespace UtilityMenuSite.Migrations
                 name: "Users",
                 columns: table => new
                 {
-                    UserId = table.Column<Guid>(type: "TEXT", nullable: false, defaultValueSql: "NEWSEQUENTIALID()"),
-                    IdentityId = table.Column<string>(type: "TEXT", maxLength: 450, nullable: false),
-                    Email = table.Column<string>(type: "TEXT", maxLength: 256, nullable: false),
-                    DisplayName = table.Column<string>(type: "TEXT", maxLength: 100, nullable: true),
-                    Organisation = table.Column<string>(type: "TEXT", maxLength: 200, nullable: true),
-                    JobRole = table.Column<string>(type: "TEXT", maxLength: 100, nullable: true),
-                    UsageInterests = table.Column<string>(type: "TEXT", maxLength: 500, nullable: true),
-                    ProfileCompletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    ExternalId = table.Column<string>(type: "TEXT", maxLength: 200, nullable: true),
-                    ApiToken = table.Column<string>(type: "TEXT", maxLength: 64, nullable: false),
-                    IsActive = table.Column<bool>(type: "INTEGER", nullable: false, defaultValue: true),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false, defaultValueSql: "SYSUTCDATETIME()"),
-                    UpdatedAt = table.Column<DateTime>(type: "TEXT", nullable: false, defaultValueSql: "SYSUTCDATETIME()")
+                    UserId = table.Column<Guid>(type: "uniqueidentifier", nullable: false, defaultValueSql: "NEWSEQUENTIALID()"),
+                    IdentityId = table.Column<string>(type: "nvarchar(450)", maxLength: 450, nullable: true),
+                    Email = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: false),
+                    DisplayName = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    Organisation = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
+                    JobRole = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    UsageInterests = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    ProfileCompletedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    ExternalId = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
+                    ApiToken = table.Column<string>(type: "nvarchar(64)", maxLength: 64, nullable: false),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false, defaultValue: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "SYSUTCDATETIME()"),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "SYSUTCDATETIME()")
                 },
                 constraints: table =>
                 {
@@ -149,11 +149,11 @@ namespace UtilityMenuSite.Migrations
                 name: "AspNetRoleClaims",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "INTEGER", nullable: false)
-                        .Annotation("Sqlite:Autoincrement", true),
-                    RoleId = table.Column<string>(type: "TEXT", nullable: false),
-                    ClaimType = table.Column<string>(type: "TEXT", nullable: true),
-                    ClaimValue = table.Column<string>(type: "TEXT", nullable: true)
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    RoleId = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    ClaimType = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    ClaimValue = table.Column<string>(type: "nvarchar(max)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -170,11 +170,11 @@ namespace UtilityMenuSite.Migrations
                 name: "AspNetUserClaims",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "INTEGER", nullable: false)
-                        .Annotation("Sqlite:Autoincrement", true),
-                    UserId = table.Column<string>(type: "TEXT", nullable: false),
-                    ClaimType = table.Column<string>(type: "TEXT", nullable: true),
-                    ClaimValue = table.Column<string>(type: "TEXT", nullable: true)
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    UserId = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    ClaimType = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    ClaimValue = table.Column<string>(type: "nvarchar(max)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -191,10 +191,10 @@ namespace UtilityMenuSite.Migrations
                 name: "AspNetUserLogins",
                 columns: table => new
                 {
-                    LoginProvider = table.Column<string>(type: "TEXT", nullable: false),
-                    ProviderKey = table.Column<string>(type: "TEXT", nullable: false),
-                    ProviderDisplayName = table.Column<string>(type: "TEXT", nullable: true),
-                    UserId = table.Column<string>(type: "TEXT", nullable: false)
+                    LoginProvider = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    ProviderKey = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    ProviderDisplayName = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    UserId = table.Column<string>(type: "nvarchar(450)", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -211,8 +211,8 @@ namespace UtilityMenuSite.Migrations
                 name: "AspNetUserRoles",
                 columns: table => new
                 {
-                    UserId = table.Column<string>(type: "TEXT", nullable: false),
-                    RoleId = table.Column<string>(type: "TEXT", nullable: false)
+                    UserId = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    RoleId = table.Column<string>(type: "nvarchar(450)", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -235,10 +235,10 @@ namespace UtilityMenuSite.Migrations
                 name: "AspNetUserTokens",
                 columns: table => new
                 {
-                    UserId = table.Column<string>(type: "TEXT", nullable: false),
-                    LoginProvider = table.Column<string>(type: "TEXT", nullable: false),
-                    Name = table.Column<string>(type: "TEXT", nullable: false),
-                    Value = table.Column<string>(type: "TEXT", nullable: true)
+                    UserId = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    LoginProvider = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    Value = table.Column<string>(type: "nvarchar(max)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -255,14 +255,14 @@ namespace UtilityMenuSite.Migrations
                 name: "ApiTokens",
                 columns: table => new
                 {
-                    TokenId = table.Column<Guid>(type: "TEXT", nullable: false, defaultValueSql: "NEWSEQUENTIALID()"),
-                    UserId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    Token = table.Column<string>(type: "TEXT", maxLength: 64, nullable: false),
-                    Name = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false, defaultValue: "Add-in Token"),
-                    IsActive = table.Column<bool>(type: "INTEGER", nullable: false, defaultValue: true),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false, defaultValueSql: "SYSUTCDATETIME()"),
-                    LastUsedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    ExpiresAt = table.Column<DateTime>(type: "TEXT", nullable: true)
+                    TokenId = table.Column<Guid>(type: "uniqueidentifier", nullable: false, defaultValueSql: "NEWSEQUENTIALID()"),
+                    UserId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Token = table.Column<string>(type: "nvarchar(64)", maxLength: 64, nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false, defaultValue: "Add-in Token"),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false, defaultValue: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "SYSUTCDATETIME()"),
+                    LastUsedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    ExpiresAt = table.Column<DateTime>(type: "datetime2", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -279,15 +279,15 @@ namespace UtilityMenuSite.Migrations
                 name: "AuditLogs",
                 columns: table => new
                 {
-                    AuditLogId = table.Column<Guid>(type: "TEXT", nullable: false, defaultValueSql: "NEWSEQUENTIALID()"),
-                    UserId = table.Column<Guid>(type: "TEXT", nullable: true),
-                    Action = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
-                    EntityName = table.Column<string>(type: "TEXT", maxLength: 100, nullable: true),
-                    EntityId = table.Column<string>(type: "TEXT", maxLength: 100, nullable: true),
-                    OldValues = table.Column<string>(type: "TEXT", nullable: true),
-                    NewValues = table.Column<string>(type: "TEXT", nullable: true),
-                    IpAddress = table.Column<string>(type: "TEXT", maxLength: 45, nullable: true),
-                    OccurredAt = table.Column<DateTime>(type: "TEXT", nullable: false, defaultValueSql: "SYSUTCDATETIME()")
+                    AuditLogId = table.Column<Guid>(type: "uniqueidentifier", nullable: false, defaultValueSql: "NEWSEQUENTIALID()"),
+                    UserId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    Action = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    EntityName = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    EntityId = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    OldValues = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    NewValues = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    IpAddress = table.Column<string>(type: "nvarchar(45)", maxLength: 45, nullable: true),
+                    OccurredAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "SYSUTCDATETIME()")
                 },
                 constraints: table =>
                 {
@@ -304,21 +304,21 @@ namespace UtilityMenuSite.Migrations
                 name: "BlogPosts",
                 columns: table => new
                 {
-                    PostId = table.Column<Guid>(type: "TEXT", nullable: false, defaultValueSql: "NEWSEQUENTIALID()"),
-                    CategoryId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    AuthorId = table.Column<Guid>(type: "TEXT", nullable: true),
-                    Title = table.Column<string>(type: "TEXT", maxLength: 300, nullable: false),
-                    Slug = table.Column<string>(type: "TEXT", maxLength: 300, nullable: false),
-                    Summary = table.Column<string>(type: "TEXT", maxLength: 500, nullable: true),
-                    Body = table.Column<string>(type: "TEXT", nullable: false),
-                    CoverImageUrl = table.Column<string>(type: "TEXT", maxLength: 500, nullable: true),
-                    IsPublished = table.Column<bool>(type: "INTEGER", nullable: false, defaultValue: false),
-                    IsFeatured = table.Column<bool>(type: "INTEGER", nullable: false, defaultValue: false),
-                    PublishedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false, defaultValueSql: "SYSUTCDATETIME()"),
-                    UpdatedAt = table.Column<DateTime>(type: "TEXT", nullable: false, defaultValueSql: "SYSUTCDATETIME()"),
-                    MetaTitle = table.Column<string>(type: "TEXT", maxLength: 200, nullable: true),
-                    MetaDescription = table.Column<string>(type: "TEXT", maxLength: 500, nullable: true)
+                    PostId = table.Column<Guid>(type: "uniqueidentifier", nullable: false, defaultValueSql: "NEWSEQUENTIALID()"),
+                    CategoryId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    AuthorId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    Title = table.Column<string>(type: "nvarchar(300)", maxLength: 300, nullable: false),
+                    Slug = table.Column<string>(type: "nvarchar(300)", maxLength: 300, nullable: false),
+                    Summary = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    Body = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    CoverImageUrl = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    IsPublished = table.Column<bool>(type: "bit", nullable: false, defaultValue: false),
+                    IsFeatured = table.Column<bool>(type: "bit", nullable: false, defaultValue: false),
+                    PublishedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "SYSUTCDATETIME()"),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "SYSUTCDATETIME()"),
+                    MetaTitle = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
+                    MetaDescription = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true)
                 },
                 constraints: table =>
                 {
@@ -341,10 +341,10 @@ namespace UtilityMenuSite.Migrations
                 name: "StripeCustomers",
                 columns: table => new
                 {
-                    StripeCustomerId = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
-                    UserId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    Email = table.Column<string>(type: "TEXT", maxLength: 256, nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false, defaultValueSql: "SYSUTCDATETIME()")
+                    StripeCustomerId = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    UserId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Email = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "SYSUTCDATETIME()")
                 },
                 constraints: table =>
                 {
@@ -361,22 +361,22 @@ namespace UtilityMenuSite.Migrations
                 name: "Subscriptions",
                 columns: table => new
                 {
-                    SubscriptionId = table.Column<Guid>(type: "TEXT", nullable: false, defaultValueSql: "NEWSEQUENTIALID()"),
-                    UserId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    StripeCustomerId = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
-                    StripeSubscriptionId = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
-                    StripePriceId = table.Column<string>(type: "TEXT", maxLength: 100, nullable: true),
-                    Status = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false),
-                    PlanType = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false),
-                    CurrentPeriodStart = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    CurrentPeriodEnd = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    GracePeriodEnd = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    CancelAtPeriodEnd = table.Column<bool>(type: "INTEGER", nullable: false, defaultValue: false),
-                    CanceledAt = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    TrialStart = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    TrialEnd = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false, defaultValueSql: "SYSUTCDATETIME()"),
-                    UpdatedAt = table.Column<DateTime>(type: "TEXT", nullable: false, defaultValueSql: "SYSUTCDATETIME()")
+                    SubscriptionId = table.Column<Guid>(type: "uniqueidentifier", nullable: false, defaultValueSql: "NEWSEQUENTIALID()"),
+                    UserId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    StripeCustomerId = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    StripeSubscriptionId = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    StripePriceId = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    Status = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
+                    PlanType = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
+                    CurrentPeriodStart = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    CurrentPeriodEnd = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    GracePeriodEnd = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    CancelAtPeriodEnd = table.Column<bool>(type: "bit", nullable: false, defaultValue: false),
+                    CanceledAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    TrialStart = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    TrialEnd = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "SYSUTCDATETIME()"),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "SYSUTCDATETIME()")
                 },
                 constraints: table =>
                 {
@@ -391,26 +391,25 @@ namespace UtilityMenuSite.Migrations
                         name: "FK_Subscriptions_Users",
                         column: x => x.UserId,
                         principalTable: "Users",
-                        principalColumn: "UserId",
-                        onDelete: ReferentialAction.Cascade);
+                        principalColumn: "UserId");
                 });
 
             migrationBuilder.CreateTable(
                 name: "Licences",
                 columns: table => new
                 {
-                    LicenceId = table.Column<Guid>(type: "TEXT", nullable: false, defaultValueSql: "NEWSEQUENTIALID()"),
-                    UserId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    SubscriptionId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    LicenceKey = table.Column<string>(type: "TEXT", maxLength: 30, nullable: false),
-                    LicenceType = table.Column<string>(type: "TEXT", maxLength: 30, nullable: false),
-                    MaxActivations = table.Column<int>(type: "INTEGER", nullable: false, defaultValue: 2),
-                    IsActive = table.Column<bool>(type: "INTEGER", nullable: false, defaultValue: true),
-                    ExpiresAt = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    LastValidatedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    Signature = table.Column<string>(type: "TEXT", maxLength: 512, nullable: true),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false, defaultValueSql: "SYSUTCDATETIME()"),
-                    UpdatedAt = table.Column<DateTime>(type: "TEXT", nullable: false, defaultValueSql: "SYSUTCDATETIME()")
+                    LicenceId = table.Column<Guid>(type: "uniqueidentifier", nullable: false, defaultValueSql: "NEWSEQUENTIALID()"),
+                    UserId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    SubscriptionId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    LicenceKey = table.Column<string>(type: "nvarchar(30)", maxLength: 30, nullable: false),
+                    LicenceType = table.Column<string>(type: "nvarchar(30)", maxLength: 30, nullable: false),
+                    MaxActivations = table.Column<int>(type: "int", nullable: false, defaultValue: 2),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false, defaultValue: true),
+                    ExpiresAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    LastValidatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    Signature = table.Column<string>(type: "nvarchar(512)", maxLength: 512, nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "SYSUTCDATETIME()"),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "SYSUTCDATETIME()")
                 },
                 constraints: table =>
                 {
@@ -425,19 +424,18 @@ namespace UtilityMenuSite.Migrations
                         name: "FK_Licences_Users",
                         column: x => x.UserId,
                         principalTable: "Users",
-                        principalColumn: "UserId",
-                        onDelete: ReferentialAction.Cascade);
+                        principalColumn: "UserId");
                 });
 
             migrationBuilder.CreateTable(
                 name: "LicenceModules",
                 columns: table => new
                 {
-                    LicenceModuleId = table.Column<Guid>(type: "TEXT", nullable: false, defaultValueSql: "NEWSEQUENTIALID()"),
-                    LicenceId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    ModuleId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    ExpiresAt = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    GrantedAt = table.Column<DateTime>(type: "TEXT", nullable: false, defaultValueSql: "SYSUTCDATETIME()")
+                    LicenceModuleId = table.Column<Guid>(type: "uniqueidentifier", nullable: false, defaultValueSql: "NEWSEQUENTIALID()"),
+                    LicenceId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ModuleId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ExpiresAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    GrantedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "SYSUTCDATETIME()")
                 },
                 constraints: table =>
                 {
@@ -460,14 +458,14 @@ namespace UtilityMenuSite.Migrations
                 name: "Machines",
                 columns: table => new
                 {
-                    MachineId = table.Column<Guid>(type: "TEXT", nullable: false, defaultValueSql: "NEWSEQUENTIALID()"),
-                    LicenceId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    MachineFingerprint = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
-                    MachineName = table.Column<string>(type: "TEXT", maxLength: 200, nullable: true),
-                    IsActive = table.Column<bool>(type: "INTEGER", nullable: false, defaultValue: true),
-                    FirstSeenAt = table.Column<DateTime>(type: "TEXT", nullable: false, defaultValueSql: "SYSUTCDATETIME()"),
-                    LastSeenAt = table.Column<DateTime>(type: "TEXT", nullable: false, defaultValueSql: "SYSUTCDATETIME()"),
-                    DeactivatedAt = table.Column<DateTime>(type: "TEXT", nullable: true)
+                    MachineId = table.Column<Guid>(type: "uniqueidentifier", nullable: false, defaultValueSql: "NEWSEQUENTIALID()"),
+                    LicenceId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    MachineFingerprint = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    MachineName = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false, defaultValue: true),
+                    FirstSeenAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "SYSUTCDATETIME()"),
+                    LastSeenAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "SYSUTCDATETIME()"),
+                    DeactivatedAt = table.Column<DateTime>(type: "datetime2", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -484,14 +482,14 @@ namespace UtilityMenuSite.Migrations
                 name: "UsageEvents",
                 columns: table => new
                 {
-                    EventId = table.Column<Guid>(type: "TEXT", nullable: false, defaultValueSql: "NEWSEQUENTIALID()"),
-                    UserId = table.Column<Guid>(type: "TEXT", nullable: true),
-                    LicenceId = table.Column<Guid>(type: "TEXT", nullable: true),
-                    MachineId = table.Column<Guid>(type: "TEXT", nullable: true),
-                    ModuleId = table.Column<Guid>(type: "TEXT", nullable: true),
-                    EventType = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
-                    EventData = table.Column<string>(type: "TEXT", nullable: true),
-                    OccurredAt = table.Column<DateTime>(type: "TEXT", nullable: false, defaultValueSql: "SYSUTCDATETIME()")
+                    EventId = table.Column<Guid>(type: "uniqueidentifier", nullable: false, defaultValueSql: "NEWSEQUENTIALID()"),
+                    UserId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    LicenceId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    MachineId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    ModuleId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    EventType = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    EventData = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    OccurredAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "SYSUTCDATETIME()")
                 },
                 constraints: table =>
                 {
@@ -500,26 +498,22 @@ namespace UtilityMenuSite.Migrations
                         name: "FK_UsageEvents_Licences",
                         column: x => x.LicenceId,
                         principalTable: "Licences",
-                        principalColumn: "LicenceId",
-                        onDelete: ReferentialAction.SetNull);
+                        principalColumn: "LicenceId");
                     table.ForeignKey(
                         name: "FK_UsageEvents_Machines",
                         column: x => x.MachineId,
                         principalTable: "Machines",
-                        principalColumn: "MachineId",
-                        onDelete: ReferentialAction.SetNull);
+                        principalColumn: "MachineId");
                     table.ForeignKey(
                         name: "FK_UsageEvents_Modules",
                         column: x => x.ModuleId,
                         principalTable: "Modules",
-                        principalColumn: "ModuleId",
-                        onDelete: ReferentialAction.SetNull);
+                        principalColumn: "ModuleId");
                     table.ForeignKey(
                         name: "FK_UsageEvents_Users",
                         column: x => x.UserId,
                         principalTable: "Users",
-                        principalColumn: "UserId",
-                        onDelete: ReferentialAction.SetNull);
+                        principalColumn: "UserId");
                 });
 
             migrationBuilder.InsertData(
@@ -566,7 +560,8 @@ namespace UtilityMenuSite.Migrations
                 name: "RoleNameIndex",
                 table: "AspNetRoles",
                 column: "NormalizedName",
-                unique: true);
+                unique: true,
+                filter: "[NormalizedName] IS NOT NULL");
 
             migrationBuilder.CreateIndex(
                 name: "IX_AspNetUserClaims_UserId",
@@ -592,7 +587,8 @@ namespace UtilityMenuSite.Migrations
                 name: "UserNameIndex",
                 table: "AspNetUsers",
                 column: "NormalizedUserName",
-                unique: true);
+                unique: true,
+                filter: "[NormalizedUserName] IS NOT NULL");
 
             migrationBuilder.CreateIndex(
                 name: "IX_AuditLogs_Action",
@@ -680,7 +676,7 @@ namespace UtilityMenuSite.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_StripeCustomers_UserId",
+                name: "UQ_StripeCustomers_UserId",
                 table: "StripeCustomers",
                 column: "UserId",
                 unique: true);
@@ -742,7 +738,8 @@ namespace UtilityMenuSite.Migrations
                 name: "IX_Users_IdentityId",
                 table: "Users",
                 column: "IdentityId",
-                unique: true);
+                unique: true,
+                filter: "[IdentityId] IS NOT NULL");
 
             migrationBuilder.CreateIndex(
                 name: "UQ_Users_ApiToken",

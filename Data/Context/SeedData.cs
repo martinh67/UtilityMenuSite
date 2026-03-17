@@ -7,6 +7,17 @@ namespace UtilityMenuSite.Data.Context;
 
 public static class SeedData
 {
+    public static async Task SeedRolesAsync(IServiceProvider services)
+    {
+        var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
+        string[] roles = ["Admin", "User"];
+        foreach (var role in roles)
+        {
+            if (!await roleManager.RoleExistsAsync(role))
+                await roleManager.CreateAsync(new IdentityRole(role));
+        }
+    }
+
     public static async Task SeedAsync(IServiceProvider services)
     {
         var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
@@ -52,6 +63,15 @@ public static class SeedData
                 UpdatedAt = DateTime.UtcNow
             });
             await db.SaveChangesAsync();
+        }
+
+        // Promote known admin accounts to the Admin role if they've already registered.
+        var adminEmails = new[] { "martin.hanna@tuxsoftware.co.uk" };
+        foreach (var email in adminEmails)
+        {
+            var user = await userManager.FindByEmailAsync(email);
+            if (user is not null && !await userManager.IsInRoleAsync(user, "Admin"))
+                await userManager.AddToRoleAsync(user, "Admin");
         }
     }
 }

@@ -97,7 +97,7 @@
     {
         var authState = await AuthProvider.GetAuthenticationStateAsync();
         var identityUser = await UserManager.GetUserAsync(authState.User);
-        if (identityUser is null) { Nav.NavigateTo("/account/login"); return; }
+        if (identityUser is null) { Nav.NavigateTo("/account/login", forceLoad: true); return; }
 
         _user = await UserService.GetByIdentityIdAsync(identityUser.Id);
         if (_user is not null)

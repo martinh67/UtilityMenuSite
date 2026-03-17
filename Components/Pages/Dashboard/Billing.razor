@@ -1,0 +1,210 @@
+@page "/dashboard/billing"
+@rendermode InteractiveServer
+@layout DashboardLayout
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Identity
+@inject AuthenticationStateProvider AuthProvider
+@inject UserManager<Data.Models.ApplicationUser> UserManager
+@inject IUserService UserService
+@inject ILicenceService LicenceService
+@inject IStripeService StripeService
+@inject NavigationManager Nav
+@inject ILogger<Billing> Logger
+
+<PageTitle>Billing — UtilityMenu Dashboard</PageTitle>
+
+@if (_loading)
+{
+    <LoadingSpinner Message="Loading billing details..." />
+}
+else
+{
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-0">Billing</h2>
+            <p class="text-muted mb-0">Manage your subscription and payment details</p>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(_message))
+    {
+        <AlertBanner Message="@_message" Type="@_messageType" />
+    }
+
+    @if (_subscription is not null)
+    {
+        <!-- Subscription Details -->
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-transparent border-0 fw-semibold">
+                <i class="bi bi-credit-card me-2 text-primary"></i>Current Subscription
+            </div>
+            <div class="card-body">
+                <div class="row g-3 mb-4">
+                    <div class="col-sm-6 col-md-3">
+                        <div class="text-muted small mb-1">Plan</div>
+                        <span class="fw-semibold fs-5">@_subscription.PlanType.ToUpperInvariant()</span>
+                    </div>
+                    <div class="col-sm-6 col-md-3">
+                        <div class="text-muted small mb-1">Status</div>
+                        <span class="badge @GetStatusBadge(_subscription.Status) fs-6">@_subscription.Status</span>
+                    </div>
+                    @if (_subscription.CurrentPeriodStart.HasValue)
+                    {
+                        <div class="col-sm-6 col-md-3">
+                            <div class="text-muted small mb-1">Period Start</div>
+                            <span class="fw-semibold">@_subscription.CurrentPeriodStart.Value.ToString("MMM d, yyyy")</span>
+                        </div>
+                    }
+                    @if (_subscription.CurrentPeriodEnd.HasValue)
+                    {
+                        <div class="col-sm-6 col-md-3">
+                            <div class="text-muted small mb-1">
+                                @(_subscription.CancelAtPeriodEnd ? "Access Until" : "Renews")
+                            </div>
+                            <span class="fw-semibold @(_subscription.CancelAtPeriodEnd ? "text-warning" : "")">
+                                @_subscription.CurrentPeriodEnd.Value.ToString("MMM d, yyyy")
+                            </span>
+                        </div>
+                    }
+                </div>
+
+                @if (_subscription.CancelAtPeriodEnd)
+                {
+                    <div class="alert alert-warning d-flex align-items-center gap-2 mb-4">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        <div>
+                            Your subscription is set to cancel at the end of the current period.
+                            You will retain access until <strong>@_subscription.CurrentPeriodEnd?.ToString("MMMM d, yyyy")</strong>.
+                            You can resume your subscription via the billing portal.
+                        </div>
+                    </div>
+                }
+
+                @if (_subscription.GracePeriodEnd.HasValue && _subscription.Status == "grace_period")
+                {
+                    <div class="alert alert-warning d-flex align-items-center gap-2 mb-4">
+                        <i class="bi bi-clock-history"></i>
+                        <div>
+                            Your subscription has a payment issue. Grace period ends
+                            <strong>@_subscription.GracePeriodEnd.Value.ToString("MMMM d, yyyy")</strong>.
+                            Please update your payment method to avoid losing access.
+                        </div>
+                    </div>
+                }
+
+                @if (_stripeCustomerId is not null)
+                {
+                    <button class="btn btn-outline-primary" @onclick="ManageBilling" disabled="@_billingLoading">
+                        @if (_billingLoading)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                        }
+                        <i class="bi bi-box-arrow-up-right me-2"></i>Manage Billing in Stripe
+                    </button>
+                    <p class="text-muted small mt-2 mb-0">
+                        Update payment method, view invoices, or cancel your subscription.
+                    </p>
+                }
+            </div>
+        </div>
+
+        @if (_subscription.TrialEnd.HasValue && _subscription.TrialEnd.Value > DateTime.UtcNow)
+        {
+            <div class="card border-0 shadow-sm border-start border-info border-3 mb-4">
+                <div class="card-body">
+                    <div class="fw-semibold text-info mb-1"><i class="bi bi-gift me-2"></i>Free Trial Active</div>
+                    <p class="mb-0 text-muted">
+                        Your free trial ends on <strong>@_subscription.TrialEnd.Value.ToString("MMMM d, yyyy")</strong>.
+                        You won't be charged until the trial ends.
+                    </p>
+                </div>
+            </div>
+        }
+    }
+    else
+    {
+        <!-- No subscription -->
+        <div class="card border-0 shadow-sm text-center py-5">
+            <div class="card-body">
+                <i class="bi bi-credit-card text-muted" style="font-size:3rem;"></i>
+                <h5 class="mt-3 fw-semibold">No active subscription</h5>
+                <p class="text-muted">Upgrade to Pro to unlock all modules, priority support, and more.</p>
+                <a href="/pricing" class="btn btn-primary btn-lg">
+                    <i class="bi bi-arrow-up-circle me-2"></i>View Pricing
+                </a>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    private Data.Models.User? _user;
+    private Data.Models.Subscription? _subscription;
+    private string? _stripeCustomerId;
+    private bool _loading = true;
+    private bool _billingLoading;
+    private string? _message;
+    private string _messageType = "info";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            var authState = await AuthProvider.GetAuthenticationStateAsync();
+            var identityUser = await UserManager.GetUserAsync(authState.User);
+            if (identityUser is null) { Nav.NavigateTo("/account/login"); return; }
+
+            _user = await UserService.GetByIdentityIdAsync(identityUser.Id);
+            if (_user is null) { Nav.NavigateTo("/dashboard"); return; }
+
+            _subscription = await LicenceService.GetSubscriptionAsync(_user.UserId);
+            _stripeCustomerId = await StripeService.GetStripeCustomerIdForUserAsync(_user.UserId);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load billing page");
+            _message = "Failed to load billing details.";
+            _messageType = "danger";
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ManageBilling()
+    {
+        _billingLoading = true;
+        StateHasChanged();
+        try
+        {
+            var result = await StripeService.CreateBillingPortalSessionAsync(_stripeCustomerId!);
+            Nav.NavigateTo(result.Url, forceLoad: true);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to create billing portal session");
+            _message = "Failed to open billing portal. Please try again.";
+            _messageType = "danger";
+        }
+        _billingLoading = false;
+        StateHasChanged();
+    }
+
+    private static string GetStatusBadge(string status) => status switch
+    {
+        "active"       => "bg-success",
+        "trialing"     => "bg-info",
+        "past_due"     => "bg-warning text-dark",
+        "canceled"     => "bg-danger",
+        "grace_period" => "bg-warning text-dark",
+        _              => "bg-secondary"
+    };
+}

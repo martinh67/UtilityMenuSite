@@ -21,25 +21,25 @@ public class UsageEventConfiguration : IEntityTypeConfiguration<UsageEvent>
         builder.HasOne(e => e.User)
             .WithMany(u => u.UsageEvents)
             .HasForeignKey(e => e.UserId)
-            .OnDelete(DeleteBehavior.SetNull)
+            .OnDelete(DeleteBehavior.NoAction)
             .HasConstraintName("FK_UsageEvents_Users");
 
         builder.HasOne(e => e.Licence)
             .WithMany(l => l.UsageEvents)
             .HasForeignKey(e => e.LicenceId)
-            .OnDelete(DeleteBehavior.SetNull)
+            .OnDelete(DeleteBehavior.NoAction)
             .HasConstraintName("FK_UsageEvents_Licences");
 
         builder.HasOne(e => e.Machine)
             .WithMany(m => m.UsageEvents)
             .HasForeignKey(e => e.MachineId)
-            .OnDelete(DeleteBehavior.SetNull)
+            .OnDelete(DeleteBehavior.NoAction)
             .HasConstraintName("FK_UsageEvents_Machines");
 
         builder.HasOne(e => e.Module)
             .WithMany(m => m.UsageEvents)
             .HasForeignKey(e => e.ModuleId)
-            .OnDelete(DeleteBehavior.SetNull)
+            .OnDelete(DeleteBehavior.NoAction)
             .HasConstraintName("FK_UsageEvents_Modules");
     }
 }
