@@ -30,7 +30,12 @@ public class LicenceController : ControllerBase
     public async Task<IActionResult> Validate([FromQuery] string key, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(key))
+        {
+            _logger.LogWarning("Validate called without a key from {IP}", HttpContext.Connection.RemoteIpAddress);
             return BadRequest(new { error = "key is required", code = "VALIDATION_FAILED" });
+        }
+
+        _logger.LogDebug("Validate request for key prefix {KeyPrefix}", key.Length >= 8 ? key[..8] : key);
 
         var result = await _licenceService.ValidateLicenceAsync(key, ct);
 
@@ -51,7 +56,12 @@ public class LicenceController : ControllerBase
     public async Task<IActionResult> Entitlements([FromQuery] string key, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(key))
+        {
+            _logger.LogWarning("Entitlements called without a key from {IP}", HttpContext.Connection.RemoteIpAddress);
             return BadRequest(new { error = "key is required", code = "VALIDATION_FAILED" });
+        }
+
+        _logger.LogDebug("Entitlements request for key prefix {KeyPrefix}", key.Length >= 8 ? key[..8] : key);
 
         var result = await _licenceService.GetEntitlementsAsync(key, ct);
         if (result is null)
@@ -77,11 +87,20 @@ public class LicenceController : ControllerBase
 
         var apiToken = GetBearerToken();
         if (string.IsNullOrWhiteSpace(apiToken))
+        {
+            _logger.LogWarning("Activate called without Bearer token from {IP}", HttpContext.Connection.RemoteIpAddress);
             return Unauthorized(new { error = "API token required", code = "AUTH_REQUIRED" });
+        }
 
         var user = await _userService.GetByApiTokenAsync(apiToken, ct);
         if (user is null)
+        {
+            _logger.LogWarning("Activate called with invalid API token from {IP}", HttpContext.Connection.RemoteIpAddress);
             return Unauthorized(new { error = "Invalid API token", code = "AUTH_INVALID" });
+        }
+
+        _logger.LogDebug("Activate request from user {UserId} for licence key prefix {KeyPrefix}",
+            user.UserId, request.LicenceKey.Length >= 8 ? request.LicenceKey[..8] : request.LicenceKey);
 
         try
         {

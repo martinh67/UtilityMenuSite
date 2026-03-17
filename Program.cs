@@ -1,4 +1,6 @@
 using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using UtilityMenuSite.Components;
@@ -16,28 +18,47 @@ using UtilityMenuSite.Services.User;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ── Application Insights ─────────────────────────────────────────────────────
+// Requires package: Microsoft.ApplicationInsights.AspNetCore
+// Connection string is read from ApplicationInsights:ConnectionString in config
+// (set as an Azure App Service environment variable in production/UAT).
+// Comment this block out if Application Insights is not yet provisioned.
+var aiConnectionString = builder.Configuration["ApplicationInsights:ConnectionString"];
+if (!string.IsNullOrWhiteSpace(aiConnectionString))
+{
+    builder.Services.AddApplicationInsightsTelemetry(opts =>
+        opts.ConnectionString = aiConnectionString);
+}
+
+
 // ── Blazor ──────────────────────────────────────────────────────────────────
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 builder.Services.AddCascadingAuthenticationState();
 
+// ── Data Protection ───────────────────────────────────────────────────────────
+// Keys must survive app restarts (deployments restart the app, invalidating any
+// in-memory keys and making antiforgery tokens generated before the restart
+// unverifiable after it). Azure App Service exposes %HOME% which is backed by
+// Azure Files and persists across restarts and deployments.
+// SetApplicationName pins the key-purpose string so it doesn't change when the
+// content root path changes between deployments.
+var dpKeysPath = Path.Combine(
+    Environment.GetEnvironmentVariable("HOME") ?? builder.Environment.ContentRootPath,
+    "ASP.NET", "DataProtection-Keys");
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(new System.IO.DirectoryInfo(dpKeysPath))
+    .SetApplicationName("UtilityMenuSite");
+
+
 // ── API Controllers ─────────────────────────────────────────────────────────
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
 // ── EF Core ─────────────────────────────────────────────────────────────────
-// SQLite for local development (macOS/Linux), SQL Server in staging/production.
-if (builder.Environment.IsDevelopment())
-{
-    builder.Services.AddDbContext<AppDbContext>(opts =>
-        opts.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
-}
-else
-{
-    builder.Services.AddDbContext<AppDbContext>(opts =>
-        opts.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
-}
+builder.Services.AddDbContext<AppDbContext>(opts =>
+    opts.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // ── ASP.NET Core Identity ────────────────────────────────────────────────────
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(opts =>
@@ -60,6 +81,9 @@ builder.Services.ConfigureApplicationCookie(opts =>
     opts.AccessDeniedPath = "/account/access-denied";
     opts.ExpireTimeSpan = TimeSpan.FromDays(30);
     opts.SlidingExpiration = true;
+    // Consistent with the antiforgery cookie — Secure only when the request is https,
+    // which it will be in Azure (scheme set by UseForwardedHeaders).
+    opts.Cookie.SecurePolicy = Microsoft.AspNetCore.Http.CookieSecurePolicy.SameAsRequest;
 });
 
 // ── Authorization ────────────────────────────────────────────────────────────
@@ -126,29 +150,70 @@ builder.Services.AddHttpContextAccessor();
 
 var app = builder.Build();
 
+// ── Startup diagnostics ───────────────────────────────────────────────────────
+var startupLogger = app.Services.GetRequiredService<ILogger<Program>>();
+
+startupLogger.LogInformation("UtilityMenuSite starting — Environment: {Environment}", app.Environment.EnvironmentName);
+
+if (string.IsNullOrWhiteSpace(builder.Configuration["Stripe:SecretKey"]))
+    startupLogger.LogWarning("Stripe:SecretKey is not configured — payment endpoints will fail");
+
+if (string.IsNullOrWhiteSpace(builder.Configuration["Licensing:HmacSigningKey"]))
+    startupLogger.LogWarning("Licensing:HmacSigningKey is not configured — HMAC signatures will be empty");
+
+if (string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString("DefaultConnection")))
+    startupLogger.LogCritical("ConnectionStrings:DefaultConnection is not configured — the application cannot start");
+
+if (string.IsNullOrWhiteSpace(builder.Configuration["ApplicationInsights:ConnectionString"]))
+    startupLogger.LogWarning("ApplicationInsights:ConnectionString is not set — telemetry will not be sent to Azure Monitor");
+
 // ── Database startup ──────────────────────────────────────────────────────────
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    // Relational providers (SQL Server) run migrations; InMemory (used by integration
+    // tests via WebApplicationFactory) uses EnsureCreated instead.
+    try
+    {
+        if (db.Database.IsRelational())
+        {
+            await db.Database.MigrateAsync();
+            startupLogger.LogInformation("Database migrations applied successfully");
+        }
+        else
+        {
+            await db.Database.EnsureCreatedAsync();
+        }
+    }
+    catch (Exception ex)
+    {
+        startupLogger.LogCritical(ex, "Database migration failed — the application cannot start");
+        throw;
+    }
 
-    if (app.Environment.IsDevelopment())
-    {
-        // EnsureCreated reflects the current model directly — fast for local iteration.
-        // Migrations are used in UAT/Production only.
-        db.Database.EnsureCreated();
-        await SeedData.SeedAsync(scope.ServiceProvider);
-    }
-    else
-    {
-        // Apply pending migrations on startup. Safe because migrations are idempotent.
-        // For zero-downtime deployments, run migrations separately before deploying.
-        await db.Database.MigrateAsync();
-        // Seed roles in all environments — roles must exist before any user can register.
-        await SeedData.SeedRolesAsync(scope.ServiceProvider);
-    }
+    // Seed roles and promote known admin accounts on every startup.
+    await SeedData.SeedAsync(scope.ServiceProvider);
+    startupLogger.LogInformation("Seed data applied successfully");
 }
 
 // ── Middleware pipeline ────────────────────────────────────────────────────────
+
+// Azure App Service terminates SSL and forwards requests over HTTP internally.
+// UseForwardedHeaders must come first so that subsequent middleware (antiforgery,
+// HTTPS redirect, auth cookies) all see the correct scheme and remote IP.
+// KnownNetworks/KnownProxies are cleared because Azure's internal load balancer
+// IP is not in the default loopback-only list — without this the middleware
+// silently ignores X-Forwarded-Proto and the scheme stays "http", breaking
+// antiforgery. Azure's infrastructure controls these headers, so trusting all
+// sources is safe inside an App Service.
+var forwardedOptions = new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+};
+forwardedOptions.KnownIPNetworks.Clear();
+forwardedOptions.KnownProxies.Clear();
+app.UseForwardedHeaders(forwardedOptions);
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error");
@@ -161,6 +226,7 @@ app.UseRateLimiter();
 app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
+
 app.UseAntiforgery();
 
 // Health probe — used by Azure App Service / load balancer health checks.
@@ -171,3 +237,6 @@ app.MapRazorComponents<UtilityMenuSite.App>()
     .AddInteractiveServerRenderMode();
 
 app.Run();
+
+// Required for WebApplicationFactory<Program> in integration tests.
+public partial class Program { }

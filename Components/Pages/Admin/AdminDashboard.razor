@@ -5,6 +5,7 @@
 @inject IUserService UserService
 @inject IContactService ContactService
 @inject IStripeWebhookService WebhookService
+@inject ILogger<AdminDashboard> Logger
 
 <PageTitle>Admin Dashboard — UtilityMenu</PageTitle>
 
@@ -15,6 +16,11 @@
 else
 {
     <h2 class="fw-bold mb-4">Admin Dashboard</h2>
+
+    @if (!string.IsNullOrWhiteSpace(_message))
+    {
+        <AlertBanner Message="@_message" Type="@_messageType" />
+    }
 
     <!-- Stats Panel -->
     <div class="row g-3 mb-5">
@@ -50,26 +56,38 @@ else
         <!-- User Search -->
         <div class="col-md-6">
             <div class="card border-0 shadow-sm">
-                <div class="card-header bg-transparent border-0 fw-semibold d-flex justify-content-between">
-                    <span><i class="bi bi-people me-2"></i>User Search</span>
-                    <a href="/admin/blog" class="btn btn-outline-primary btn-sm">
-                        <i class="bi bi-pencil-square me-1"></i>Blog Admin
-                    </a>
+                <div class="card-header bg-transparent border-0 fw-semibold">
+                    <i class="bi bi-people me-2"></i>User Search
                 </div>
                 <div class="card-body">
                     <div class="input-group mb-3">
-                        <input type="text" class="form-control" placeholder="Search by email..." @bind="_userQuery" @bind:event="oninput" @onkeyup="SearchUsers" />
+                        <input type="text" class="form-control" placeholder="Search by email..."
+                               @bind="_userQuery" @bind:event="oninput"
+                               @onkeydown="SearchOnEnter" />
                         <button class="btn btn-outline-secondary" @onclick="SearchUsers">Search</button>
                     </div>
-                    @foreach (var user in _users)
+                    @if (_searchLoading)
                     {
-                        <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
-                            <div>
-                                <div class="fw-semibold small">@user.Email</div>
-                                <div class="text-muted" style="font-size:0.75rem;">Joined @user.CreatedAt.ToString("MMM d, yyyy")</div>
-                            </div>
-                            <a href="/admin/users/@user.UserId" class="btn btn-sm btn-outline-primary">View</a>
+                        <div class="text-muted small text-center py-2">
+                            <span class="spinner-border spinner-border-sm me-1"></span>Searching...
                         </div>
+                    }
+                    else
+                    {
+                        @foreach (var user in _users)
+                        {
+                            <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                                <div>
+                                    <div class="fw-semibold small">@user.Email</div>
+                                    <div class="text-muted" style="font-size:0.75rem;">Joined @user.CreatedAt.ToString("MMM d, yyyy")</div>
+                                </div>
+                                <a href="/admin/users/@user.UserId" class="btn btn-sm btn-outline-primary">View</a>
+                            </div>
+                        }
+                        @if (_users.Count == 0 && !string.IsNullOrWhiteSpace(_userQuery))
+                        {
+                            <p class="text-muted small mb-0">No users found.</p>
+                        }
                     }
                 </div>
             </div>
@@ -98,6 +116,10 @@ else
                                 </button>
                             </div>
                         }
+                        @if (_contacts.Count > 5)
+                        {
+                            <p class="text-muted small mb-0">+@(_contacts.Count - 5) more pending</p>
+                        }
                     }
                     else
                     {
@@ -122,8 +144,13 @@ else
                                 <div>
                                     <span class="badge bg-secondary me-2">@webhook.EventType</span>
                                     <small class="text-muted">@webhook.ReceivedAt.ToString("MMM d HH:mm")</small>
+                                    @if (!string.IsNullOrWhiteSpace(webhook.ErrorMessage))
+                                    {
+                                        <div class="text-danger" style="font-size:0.75rem;">@webhook.ErrorMessage</div>
+                                    }
                                 </div>
-                                <button class="btn btn-sm btn-outline-warning" @onclick="() => RetryWebhook(webhook.WebhookEventId)">
+                                <button class="btn btn-sm btn-outline-warning"
+                                        @onclick="() => RetryWebhook(webhook.WebhookEventId)">
                                     <i class="bi bi-arrow-repeat me-1"></i>Retry
                                 </button>
                             </div>
@@ -142,6 +169,9 @@ else
     private List<Data.Models.StripeWebhookEvent> _failedWebhooks = new();
     private string _userQuery = string.Empty;
     private bool _loading = true;
+    private bool _searchLoading;
+    private string? _message;
+    private string _messageType = "danger";
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -151,28 +181,77 @@ else
 
     private async Task LoadDataAsync()
     {
-        _stats = await UserService.GetAdminStatsAsync();
-        _contacts = await ContactService.GetPendingSubmissionsAsync();
-        _failedWebhooks = await WebhookService.GetFailedEventsAsync();
-        _loading = false;
-        StateHasChanged();
+        try
+        {
+            _stats            = await UserService.GetAdminStatsAsync();
+            _contacts         = await ContactService.GetPendingSubmissionsAsync();
+            _failedWebhooks   = await WebhookService.GetFailedEventsAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load admin dashboard data");
+            _message = "Failed to load dashboard data. Please refresh.";
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SearchOnEnter(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await SearchUsers();
     }
 
     private async Task SearchUsers()
     {
-        if (!string.IsNullOrWhiteSpace(_userQuery))
+        if (string.IsNullOrWhiteSpace(_userQuery)) return;
+        _searchLoading = true;
+        StateHasChanged();
+        try
+        {
             _users = await UserService.SearchUsersAsync(_userQuery);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "User search failed for query {Query}", _userQuery);
+            _message = "Search failed. Please try again.";
+        }
+        finally
+        {
+            _searchLoading = false;
+            StateHasChanged();
+        }
     }
 
     private async Task ResolveContact(Guid id)
     {
-        await ContactService.ResolveAsync(id, null);
-        _contacts = await ContactService.GetPendingSubmissionsAsync();
+        try
+        {
+            await ContactService.ResolveAsync(id, null);
+            _contacts = await ContactService.GetPendingSubmissionsAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to resolve contact {Id}", id);
+            _message = "Failed to resolve contact. Please try again.";
+        }
+        StateHasChanged();
     }
 
     private async Task RetryWebhook(Guid id)
     {
-        await WebhookService.RetryEventAsync(id);
-        _failedWebhooks = await WebhookService.GetFailedEventsAsync();
+        try
+        {
+            await WebhookService.RetryEventAsync(id);
+            _failedWebhooks = await WebhookService.GetFailedEventsAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to retry webhook {Id}", id);
+            _message = "Failed to retry webhook. Please try again.";
+        }
+        StateHasChanged();
     }
 }

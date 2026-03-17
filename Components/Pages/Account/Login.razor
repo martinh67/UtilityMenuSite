@@ -2,20 +2,19 @@
 @layout AuthLayout
 @using Microsoft.AspNetCore.Identity
 @inject SignInManager<Data.Models.ApplicationUser> SignInManager
-@inject NavigationManager Nav
+@inject ILogger<Login> Logger
 
 <PageTitle>Sign In — UtilityMenu</PageTitle>
 
 <h4 class="fw-bold mb-1">Welcome back</h4>
-<p class="text-muted small mb-4">Don't have an account? <a href="/account/register">Create one</a></p>
+<p class="text-muted small mb-4">Don't have an account? <a href="/account/register" data-enhance-nav="false">Create one</a></p>
 
 @if (!string.IsNullOrWhiteSpace(_errorMessage))
 {
     <AlertBanner Message="@_errorMessage" Type="danger" />
 }
 
-<EditForm Model="_model" OnValidSubmit="HandleLogin" method="post">
-    <AntiforgeryToken />
+<EditForm Model="_model" OnValidSubmit="HandleLogin" method="post" FormName="LoginForm" data-enhance="false">
     <DataAnnotationsValidator />
 
     <div class="mb-3">
@@ -54,6 +53,9 @@
 
     protected override void OnInitialized() => _model ??= new();
 
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
     private string? _errorMessage;
 
     private async Task HandleLogin()
@@ -63,13 +65,26 @@
 
         if (result.Succeeded)
         {
-            Nav.NavigateTo(ReturnUrl ?? "/dashboard", forceLoad: true);
+            Logger.LogInformation("User {Email} signed in successfully", _model.Email);
+            // Use Response.Redirect instead of Nav.NavigateTo so Blazor Enhanced Navigation
+            // cannot intercept the 302 — the browser performs a full GET, SSR re-renders,
+            // and a fresh antiforgery token is issued for the authenticated session.
+            var destination = ReturnUrl is { Length: > 0 } r && r.StartsWith('/') && !r.StartsWith("//")
+                ? r : "/dashboard";
+            HttpContext!.Response.Redirect(destination);
             return;
         }
 
-        _errorMessage = result.IsLockedOut
-            ? "Your account has been locked due to too many failed attempts. Try again in 15 minutes."
-            : "Invalid email or password.";
+        if (result.IsLockedOut)
+        {
+            Logger.LogWarning("Account lockout for {Email}", _model.Email);
+            _errorMessage = "Your account has been locked due to too many failed attempts. Try again in 15 minutes.";
+        }
+        else
+        {
+            Logger.LogWarning("Failed sign-in attempt for {Email}", _model.Email);
+            _errorMessage = "Invalid email or password.";
+        }
     }
 
     private class LoginModel

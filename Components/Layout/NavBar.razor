@@ -32,13 +32,19 @@
                         <a class="btn btn-outline-primary btn-sm" href="/dashboard">
                             <i class="bi bi-speedometer2 me-1"></i>Dashboard
                         </a>
+                        <AuthorizeView Roles="Admin" Context="adminCtx">
+                            <a class="btn btn-outline-danger btn-sm" href="/admin">
+                                <i class="bi bi-shield-lock me-1"></i>Admin
+                            </a>
+                        </AuthorizeView>
                         <form method="post" action="/account/logout">
+                            <AntiforgeryToken />
                             <button type="submit" class="btn btn-sm btn-light">Logout</button>
                         </form>
                     </Authorized>
                     <NotAuthorized>
-                        <a class="btn btn-outline-secondary btn-sm" href="/account/login">Login</a>
-                        <a class="btn btn-primary btn-sm" href="/download">Download Free</a>
+                        <a class="btn btn-outline-secondary btn-sm" href="/account/login" data-enhance-nav="false">Login</a>
+                        <a class="btn btn-primary btn-sm" href="/download" data-enhance-nav="false">Download Free</a>
                     </NotAuthorized>
                 </AuthorizeView>
             </div>

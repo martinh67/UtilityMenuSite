@@ -63,7 +63,7 @@ UtilityMenuSite is the **single source of truth** for the entire product. It own
 | Layer | Technology |
 |-------|-----------|
 | Framework | Blazor Web App, .NET 8 (SSR + InteractiveServer) |
-| Database | SQL Server (production/UAT) / SQLite (development) |
+| Database | SQL Server (all environments) |
 | ORM | EF Core 8 with `IEntityTypeConfiguration` |
 | Auth | ASP.NET Core Identity, cookie-based, 30-day sliding window |
 | Payments | Stripe.net 46.x |

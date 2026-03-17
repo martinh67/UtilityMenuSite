@@ -4,7 +4,7 @@ Instructions for Claude Code when working in this repository.
 
 ## Project Overview
 
-**UtilityMenuSite** is a Blazor Web App (.NET 8) that serves as the marketing site, customer portal, licensing backend, and Stripe payment integration for the **UtilityMenu** Excel add-in.
+**UtilityMenuSite** is a Blazor Web App (.NET 10) that serves as the marketing site, customer portal, licensing backend, and Stripe payment integration for the **UtilityMenu** Excel add-in.
 
 ## Architecture
 
@@ -40,7 +40,7 @@ UtilityMenuSite/
 
 | Layer | Technology |
 |-------|-----------|
-| Framework | Blazor Web App (.NET 8) |
+| Framework | Blazor Web App (.NET 10) |
 | Database | SQL Server + EF Core 8 |
 | Auth | ASP.NET Core Identity (cookie, 30-day sliding) |
 | Payments | Stripe.net 46.x |
@@ -143,6 +143,13 @@ dotnet ef migrations script --idempotent -o migrations.sql
 ## TODO
 
 - **Dev environment**: `deploy-dev.yml` triggers on `feature/**` pushes and requires `DEV_CONNECTION_STRING` and `DEV_AZURE_CREDENTIALS` GitHub secrets. Either create a Dev Azure App Service and add these secrets, or delete `deploy-dev.yml` if a dev environment is not needed.
+
+## .NET 10 Blazor — Known Behaviour
+
+- **`EditForm` auto-injects antiforgery**: In .NET 10, `EditForm` with `method="post"` automatically renders the `__RequestVerificationToken` hidden field. Do **not** add `<AntiforgeryToken />` inside an `EditForm` — it will produce a duplicate token and antiforgery validation will fail with a misleading 400 error.
+- **Plain `<form>` tags still need it manually**: The logout forms in NavBar, DashboardNavBar, and AdminNavBar are plain HTML `<form>` elements and must keep `<AntiforgeryToken />`.
+- **No explicit `AddAntiforgery()` call**: `AddRazorComponents()` registers the antiforgery service internally. Adding a second explicit `AddAntiforgery()` call creates a conflicting second antiforgery system with a different cookie name, causing token/cookie mismatches. Let Blazor own this entirely.
+- **`UseAntiforgery()` position**: Must appear after `UseAuthorization()` and before `MapRazorComponents()` in the middleware pipeline.
 
 ## Key Design Decisions
 

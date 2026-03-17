@@ -65,6 +65,7 @@ public class ContactService : IContactService
         submission.Notes = notes;
         await _contactRepo.UpdateAsync(submission, ct);
 
+        _logger.LogInformation("Resolved contact submission {SubmissionId}", submissionId);
         return true;
     }
 }

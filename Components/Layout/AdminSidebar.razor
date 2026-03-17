@@ -5,25 +5,27 @@
         </span>
     </div>
     <nav class="nav flex-column gap-1">
-        <a href="/admin" class="nav-link text-light d-flex align-items-center gap-2">
+        <NavLink href="/admin" Match="NavLinkMatch.All"
+                 class="nav-link d-flex align-items-center gap-2">
             <i class="bi bi-speedometer2"></i> Dashboard
-        </a>
-        <a href="/admin/blog" class="nav-link text-secondary d-flex align-items-center gap-2">
+        </NavLink>
+        <NavLink href="/admin/blog" Match="NavLinkMatch.All"
+                 class="nav-link d-flex align-items-center gap-2">
             <i class="bi bi-pencil-square"></i> Blog Posts
-        </a>
-        <a href="/admin" class="nav-link text-secondary d-flex align-items-center gap-2">
-            <i class="bi bi-people"></i> Users
-        </a>
-        <a href="/admin" class="nav-link text-secondary d-flex align-items-center gap-2">
-            <i class="bi bi-envelope"></i> Contact Queue
-        </a>
-        <a href="/admin" class="nav-link text-secondary d-flex align-items-center gap-2">
-            <i class="bi bi-arrow-repeat"></i> Webhooks
-        </a>
+        </NavLink>
     </nav>
     <div class="mt-auto pt-4 border-top border-secondary">
-        <a href="/" class="nav-link text-secondary small">
-            <i class="bi bi-arrow-left me-1"></i>Back to site
+        <a href="/dashboard" class="nav-link text-secondary small d-flex align-items-center gap-2">
+            <i class="bi bi-speedometer2"></i>Customer Dashboard
+        </a>
+        <a href="/" class="nav-link text-secondary small d-flex align-items-center gap-2">
+            <i class="bi bi-arrow-left"></i>Back to site
         </a>
     </div>
 </div>
+
+<style>
+    .admin-sidebar .nav-link { color: rgba(255, 255, 255, 0.5); }
+    .admin-sidebar .nav-link:hover { color: rgba(255, 255, 255, 0.85); }
+    .admin-sidebar .nav-link.active { color: #fff; font-weight: 600; }
+</style>

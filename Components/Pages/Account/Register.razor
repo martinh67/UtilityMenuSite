@@ -4,13 +4,12 @@
 @inject UserManager<Data.Models.ApplicationUser> UserManager
 @inject SignInManager<Data.Models.ApplicationUser> SignInManager
 @inject IUserService UserService
-@inject NavigationManager Nav
 @inject ILogger<Register> Logger
 
 <PageTitle>Create Account — UtilityMenu</PageTitle>
 
 <h4 class="fw-bold mb-1">Create your free account</h4>
-<p class="text-muted small mb-3">Already have an account? <a href="/account/login@(string.IsNullOrWhiteSpace(ReturnUrl) ? "" : $"?returnUrl={Uri.EscapeDataString(ReturnUrl)}")">Sign in</a></p>
+<p class="text-muted small mb-3">Already have an account? <a href="/account/login@(string.IsNullOrWhiteSpace(ReturnUrl) ? "" : $"?returnUrl={Uri.EscapeDataString(ReturnUrl)}")" data-enhance-nav="false">Sign in</a></p>
 
 <div class="alert alert-light border small mb-4">
     <i class="bi bi-shield-check text-primary me-2"></i>
@@ -22,8 +21,13 @@
     <AlertBanner Message="@_errorMessage" Type="danger" />
 }
 
-<EditForm Model="_model" OnValidSubmit="HandleRegister" method="post">
-    <AntiforgeryToken />
+<!-- Register Form -->
+<EditForm 
+    Model="_model"
+    OnValidSubmit="HandleRegister"
+    method="post"
+    FormName="RegisterForm"
+    data-enhance="false">
     <DataAnnotationsValidator />
 
     <div class="mb-3">
@@ -67,6 +71,9 @@
     private RegisterModel _model { get; set; } = default!;
 
     protected override void OnInitialized() => _model ??= new();
+
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
 
     private string? _errorMessage;
 
@@ -112,10 +119,12 @@
             return;
         }
 
-        // NavigateTo throws NavigationException intentionally — Blazor SSR converts
-        // it to a redirect. It must be outside the try/catch.
-        var profileReturnUrl = ReturnUrl ?? "/dashboard";
-        Nav.NavigateTo($"/account/complete-profile?returnUrl={Uri.EscapeDataString(profileReturnUrl)}", forceLoad: true);
+        // Use Response.Redirect instead of Nav.NavigateTo — same reason as Login.razor:
+        // forces a full browser GET so SSR re-emits a valid antiforgery token for
+        // the newly authenticated session (.NET 10 Enhanced Navigation regression).
+        var profileReturnUrl = ReturnUrl is { Length: > 0 } r && r.StartsWith('/') && !r.StartsWith("//")
+            ? r : "/dashboard";
+        HttpContext!.Response.Redirect($"/account/complete-profile?returnUrl={Uri.EscapeDataString(profileReturnUrl)}");
     }
 
     private class RegisterModel

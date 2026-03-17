@@ -72,10 +72,13 @@ public class StripeService : IStripeService
         var licenceKey = await _licenceService
             .GetLicenceKeyForStripeCustomerAsync(session.CustomerId, ct);
 
+        var status = MapStatus(session.PaymentStatus, session.Status);
+        _logger.LogDebug("Checkout session {SessionId} status: {Status} (payment: {PaymentStatus})", sessionId, status, session.PaymentStatus);
+
         return new SessionStatusResult
         {
             SessionId = sessionId,
-            Status = MapStatus(session.PaymentStatus, session.Status),
+            Status = status,
             LicenceKey = licenceKey,
             CustomerEmail = session.CustomerDetails?.Email
         };
@@ -112,12 +115,16 @@ public class StripeService : IStripeService
             cancellationToken: ct);
 
         if (existingCustomers.Any())
+        {
+            _logger.LogDebug("Found existing Stripe customer for email lookup");
             return existingCustomers.First().Id;
+        }
 
         var newCustomer = await customerService.CreateAsync(
             new CustomerCreateOptions { Email = email },
             cancellationToken: ct);
 
+        _logger.LogInformation("Created new Stripe customer {CustomerId}", newCustomer.Id);
         return newCustomer.Id;
     }
 
