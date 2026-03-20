@@ -118,6 +118,20 @@ builder.Services.AddScoped<IContactRepository, ContactRepository>();
 
 // ── HTTP clients ─────────────────────────────────────────────────────────────
 builder.Services.AddHttpClient("sendgrid");
+builder.Services.AddHttpClient("github", client =>
+{
+    client.BaseAddress = new Uri("https://api.github.com/");
+    // GitHub API requires a User-Agent header.
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("UtilityMenuSite/1.0");
+    client.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
+    client.DefaultRequestHeaders.Add("X-GitHub-Api-Version", "2022-11-28");
+});
+// Used by DownloadController to proxy the installer binary to the user.
+// Longer timeout to accommodate large file transfers.
+builder.Services.AddHttpClient("installer-proxy", client =>
+{
+    client.Timeout = TimeSpan.FromMinutes(5);
+});
 
 // ── Rate limiting ─────────────────────────────────────────────────────────────
 builder.Services.AddMemoryCache();
