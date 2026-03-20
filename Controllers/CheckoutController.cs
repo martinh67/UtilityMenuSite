@@ -47,7 +47,7 @@ public class CheckoutController : ControllerBase
         try
         {
             var result = await _stripeService.CreateCheckoutSessionAsync(
-                request.PriceId, request.CustomerEmail, request.Mode, ct);
+                request.PriceId, request.CustomerEmail, request.Mode, ct: ct);
 
             return Ok(new { url = result.CheckoutUrl, sessionId = result.SessionId });
         }

@@ -189,7 +189,7 @@
             Nav.NavigateTo($"/account/register?returnUrl={Uri.EscapeDataString("/pricing")}");
             return;
         }
-        Nav.NavigateTo("/pricing/checkout");
+        Nav.NavigateTo($"/pricing/checkout?plan={(_isAnnual ? "annual" : "monthly")}");
     }
 
     private record ComparisonRow(string Feature, bool Free, bool Pro, string CustomCell);

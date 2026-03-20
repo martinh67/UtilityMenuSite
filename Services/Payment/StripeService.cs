@@ -32,6 +32,7 @@ public class StripeService : IStripeService
         string priceId,
         string customerEmail,
         string mode,
+        string planType = "monthly",
         CancellationToken ct = default)
     {
         var stripeCustomerId = await GetOrCreateStripeCustomerAsync(customerEmail, ct);
@@ -46,7 +47,8 @@ public class StripeService : IStripeService
             ],
             Mode = mode,
             SuccessUrl = $"{_settings.BaseUrl}/checkout/success?session_id={{CHECKOUT_SESSION_ID}}",
-            CancelUrl = $"{_settings.BaseUrl}/pricing"
+            CancelUrl = $"{_settings.BaseUrl}/pricing",
+            Metadata = new Dictionary<string, string> { ["plan_type"] = planType }
         };
 
         var service = new SessionService();

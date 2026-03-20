@@ -15,6 +15,7 @@ public class StripeWebhookService : IStripeWebhookService
     private readonly ILicenceService _licenceService;
     private readonly IUserService _userService;
     private readonly ILicenceRepository _licenceRepo;
+    private readonly IEmailService _emailService;
     private readonly ILogger<StripeWebhookService> _logger;
 
     public StripeWebhookService(
@@ -23,6 +24,7 @@ public class StripeWebhookService : IStripeWebhookService
         ILicenceService licenceService,
         IUserService userService,
         ILicenceRepository licenceRepo,
+        IEmailService emailService,
         ILogger<StripeWebhookService> logger)
     {
         _settings = settings.Value;
@@ -30,6 +32,7 @@ public class StripeWebhookService : IStripeWebhookService
         _licenceService = licenceService;
         _userService = userService;
         _licenceRepo = licenceRepo;
+        _emailService = emailService;
         _logger = logger;
     }
 
@@ -162,7 +165,8 @@ public class StripeWebhookService : IStripeWebhookService
         await _licenceService.EnsureStripeCustomerAsync(user.UserId, session.CustomerId, email, ct);
 
         var isSubscription = session.Mode == "subscription";
-        var planType = isSubscription ? "monthly" : "lifetime";
+        session.Metadata.TryGetValue("plan_type", out var planType);
+        planType = isSubscription ? (planType ?? "monthly") : "lifetime";
 
         var subscription = await _licenceService.SyncSubscriptionAsync(
             stripeCustomerId: session.CustomerId,
@@ -181,6 +185,15 @@ public class StripeWebhookService : IStripeWebhookService
             ct: ct);
 
         _logger.LogInformation("Provisioned licence {LicenceKey} for user {Email} via session {SessionId}", licenceKey, email, session.Id);
+
+        try
+        {
+            await _emailService.SendLicenceIssuedAsync(email, licenceKey, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send licence-issued email to {Email}", email);
+        }
     }
 
     private async Task HandleInvoicePaidAsync(Invoice invoice, CancellationToken ct)
@@ -227,6 +240,20 @@ public class StripeWebhookService : IStripeWebhookService
         }
 
         _logger.LogWarning("Payment failed for subscription {SubId}, grace period until {GraceEnd}", invoice.SubscriptionId, gracePeriodEnd);
+
+        var user = await _userService.GetByIdAsync(subscription.UserId, ct);
+        if (user is not null)
+        {
+            try
+            {
+                var billingUrl = $"{_settings.BaseUrl}/dashboard/billing";
+                await _emailService.SendPaymentFailedAsync(user.Email, billingUrl, ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send payment-failed email for user {UserId}", subscription.UserId);
+            }
+        }
     }
 
     private async Task HandleSubscriptionUpdatedAsync(StripeSubscription stripeSub, CancellationToken ct)
