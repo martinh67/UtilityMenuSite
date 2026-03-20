@@ -5,6 +5,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>UtilityMenuSite</RootNamespace>
+    <UserSecretsId>utilitymenusite-dev-secrets</UserSecretsId>
   </PropertyGroup>
 
   <!-- Exclude test project subfolder from this project's SDK glob -->
