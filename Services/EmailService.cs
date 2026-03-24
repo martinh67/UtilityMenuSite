@@ -39,6 +39,9 @@ public class EmailService : IEmailService
             case "SendGrid":
                 await SendViaSendGridAsync(toAddress, toName, subject, htmlBody, plainTextBody, ct);
                 break;
+            case "Resend":
+                await SendViaResendAsync(toAddress, toName, subject, htmlBody, plainTextBody, ct);
+                break;
             default:
                 // Console provider — log the email; safe for development environments.
                 _logger.LogInformation(
@@ -79,6 +82,42 @@ public class EmailService : IEmailService
             to avoid losing access.</p>
             """;
         return SendAsync(toAddress, toAddress, "UtilityMenu — payment action required", html, ct: ct);
+    }
+
+    private async Task SendViaResendAsync(
+        string toAddress, string toName, string subject,
+        string htmlBody, string? plainText, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(_settings.ApiKey))
+        {
+            _logger.LogWarning("Resend API key is not configured — email not sent to {To}", toAddress);
+            return;
+        }
+
+        var payload = new
+        {
+            from = $"{_settings.FromName} <{_settings.FromAddress}>",
+            to = new[] { $"{toName} <{toAddress}>" },
+            subject,
+            html = htmlBody,
+            text = plainText ?? System.Text.RegularExpressions.Regex.Replace(htmlBody, "<[^>]+>", "")
+        };
+
+        var client = _httpClientFactory.CreateClient("resend");
+        client.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _settings.ApiKey);
+
+        var response = await client.PostAsJsonAsync("https://api.resend.com/emails", payload, ct);
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync(ct);
+            _logger.LogError("Resend returned {Status} for email to {To}: {Body}",
+                response.StatusCode, toAddress, body);
+        }
+        else
+        {
+            _logger.LogInformation("Email sent to {To} via Resend: {Subject}", toAddress, subject);
+        }
     }
 
     private async Task SendViaSendGridAsync(
