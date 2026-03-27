@@ -340,6 +340,36 @@ public class LicenceService : ILicenceService
         return licence;
     }
 
+    public async Task<List<Module>> GetAllModulesAsync(CancellationToken ct = default)
+        => await _licenceRepo.GetAllModulesAsync(ct);
+
+    public async Task GrantModuleAsync(Guid licenceId, Guid moduleId, DateTime? expiresAt, CancellationToken ct = default)
+    {
+        var existing = await _licenceRepo.GetLicenceModuleAsync(licenceId, moduleId, ct);
+        if (existing is not null)
+        {
+            _logger.LogDebug("Module {ModuleId} already granted to licence {LicenceId}", moduleId, licenceId);
+            return;
+        }
+
+        await _licenceRepo.AddLicenceModulesAsync([new LicenceModule
+        {
+            LicenceId  = licenceId,
+            ModuleId   = moduleId,
+            GrantedAt  = DateTime.UtcNow,
+            ExpiresAt  = expiresAt
+        }], ct);
+
+        _logger.LogInformation("Granted module {ModuleId} to licence {LicenceId} (expires: {ExpiresAt})",
+            moduleId, licenceId, expiresAt?.ToString("O") ?? "never");
+    }
+
+    public async Task RevokeModuleAsync(Guid licenceId, Guid moduleId, CancellationToken ct = default)
+    {
+        await _licenceRepo.RemoveLicenceModuleAsync(licenceId, moduleId, ct);
+        _logger.LogInformation("Revoked module {ModuleId} from licence {LicenceId}", moduleId, licenceId);
+    }
+
     private string ComputeSignature(Licence licence, List<string> modules)
     {
         if (string.IsNullOrWhiteSpace(_settings.HmacSigningKey))

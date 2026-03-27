@@ -140,6 +140,27 @@ public class LicenceRepository : ILicenceRepository
             .ToListAsync(ct);
     }
 
+    public async Task<List<Module>> GetAllModulesAsync(CancellationToken ct = default)
+        => await _db.Modules
+            .Where(m => m.IsActive)
+            .OrderBy(m => m.SortOrder)
+            .ToListAsync(ct);
+
+    public async Task<LicenceModule?> GetLicenceModuleAsync(Guid licenceId, Guid moduleId, CancellationToken ct = default)
+        => await _db.LicenceModules
+            .FirstOrDefaultAsync(lm => lm.LicenceId == licenceId && lm.ModuleId == moduleId, ct);
+
+    public async Task RemoveLicenceModuleAsync(Guid licenceId, Guid moduleId, CancellationToken ct = default)
+    {
+        var lm = await _db.LicenceModules
+            .FirstOrDefaultAsync(x => x.LicenceId == licenceId && x.ModuleId == moduleId, ct);
+        if (lm is not null)
+        {
+            _db.LicenceModules.Remove(lm);
+            await _db.SaveChangesAsync(ct);
+        }
+    }
+
     public async Task<int> GetTotalActiveLicencesAsync(CancellationToken ct = default)
         => await _db.Licences.CountAsync(l => l.IsActive, ct);
 

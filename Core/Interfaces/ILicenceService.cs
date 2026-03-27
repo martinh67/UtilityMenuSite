@@ -17,4 +17,7 @@ public interface ILicenceService
     Task EnsureStripeCustomerAsync(Guid userId, string stripeCustomerId, string email, CancellationToken ct = default);
     Task<Subscription> SyncSubscriptionAsync(string stripeCustomerId, string stripeSubId, string status, Guid userId, string planType, CancellationToken ct = default);
     Task<Licence> ProvisionLicenceAsync(Guid userId, Guid subscriptionId, string licenceKey, string licenceType, CancellationToken ct = default);
+    Task<List<Module>> GetAllModulesAsync(CancellationToken ct = default);
+    Task GrantModuleAsync(Guid licenceId, Guid moduleId, DateTime? expiresAt, CancellationToken ct = default);
+    Task RevokeModuleAsync(Guid licenceId, Guid moduleId, CancellationToken ct = default);
 }

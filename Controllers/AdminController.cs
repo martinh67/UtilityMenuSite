@@ -12,17 +12,20 @@ public class AdminController : ControllerBase
     private readonly IUserService _userService;
     private readonly IContactService _contactService;
     private readonly IStripeWebhookService _webhookService;
+    private readonly ILicenceService _licenceService;
     private readonly ILogger<AdminController> _logger;
 
     public AdminController(
         IUserService userService,
         IContactService contactService,
         IStripeWebhookService webhookService,
+        ILicenceService licenceService,
         ILogger<AdminController> logger)
     {
         _userService = userService;
         _contactService = contactService;
         _webhookService = webhookService;
+        _licenceService = licenceService;
         _logger = logger;
     }
 
@@ -79,9 +82,33 @@ public class AdminController : ControllerBase
         var stats = await _userService.GetAdminStatsAsync(ct);
         return Ok(stats);
     }
+
+    /// <summary>POST /api/admin/licences/{licenceId}/modules — Grant a module to a licence</summary>
+    [HttpPost("licences/{licenceId:guid}/modules")]
+    public async Task<IActionResult> GrantModule(Guid licenceId, [FromBody] GrantModuleRequest request, CancellationToken ct)
+    {
+        await _licenceService.GrantModuleAsync(licenceId, request.ModuleId, request.ExpiresAt, ct);
+        _logger.LogInformation("Admin granted module {ModuleId} to licence {LicenceId}", request.ModuleId, licenceId);
+        return Ok(new { success = true });
+    }
+
+    /// <summary>DELETE /api/admin/licences/{licenceId}/modules/{moduleId} — Revoke a module from a licence</summary>
+    [HttpDelete("licences/{licenceId:guid}/modules/{moduleId:guid}")]
+    public async Task<IActionResult> RevokeModule(Guid licenceId, Guid moduleId, CancellationToken ct)
+    {
+        await _licenceService.RevokeModuleAsync(licenceId, moduleId, ct);
+        _logger.LogInformation("Admin revoked module {ModuleId} from licence {LicenceId}", moduleId, licenceId);
+        return Ok(new { success = true });
+    }
 }
 
 public class ResolveContactRequest
 {
     public string? Notes { get; set; }
+}
+
+public class GrantModuleRequest
+{
+    public Guid ModuleId { get; set; }
+    public DateTime? ExpiresAt { get; set; }
 }

@@ -26,6 +26,9 @@ public interface ILicenceRepository
     Task AddLicenceModulesAsync(IEnumerable<LicenceModule> modules, CancellationToken ct = default);
     /// <summary>Returns all active modules for the given tiers (e.g. ["core","pro"] for a Pro provisioning).</summary>
     Task<List<Module>> GetModulesByTiersAsync(IEnumerable<string> tiers, CancellationToken ct = default);
+    Task<List<Module>> GetAllModulesAsync(CancellationToken ct = default);
+    Task<LicenceModule?> GetLicenceModuleAsync(Guid licenceId, Guid moduleId, CancellationToken ct = default);
+    Task RemoveLicenceModuleAsync(Guid licenceId, Guid moduleId, CancellationToken ct = default);
     Task<int> GetTotalActiveLicencesAsync(CancellationToken ct = default);
     Task<bool> StripeWebhookEventExistsAsync(string stripeEventId, CancellationToken ct = default);
     Task<StripeWebhookEvent> CreateWebhookEventAsync(StripeWebhookEvent evt, CancellationToken ct = default);
