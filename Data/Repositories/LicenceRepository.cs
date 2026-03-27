@@ -92,6 +92,9 @@ public class LicenceRepository : ILicenceRepository
     public async Task<StripeCustomer?> GetStripeCustomerAsync(Guid userId, CancellationToken ct = default)
         => await _db.StripeCustomers.FirstOrDefaultAsync(sc => sc.UserId == userId, ct);
 
+    public async Task<StripeCustomer?> GetStripeCustomerByStripeIdAsync(string stripeCustomerId, CancellationToken ct = default)
+        => await _db.StripeCustomers.FirstOrDefaultAsync(sc => sc.StripeCustomerId == stripeCustomerId, ct);
+
     public async Task<StripeCustomer> CreateStripeCustomerAsync(StripeCustomer customer, CancellationToken ct = default)
     {
         _db.StripeCustomers.Add(customer);

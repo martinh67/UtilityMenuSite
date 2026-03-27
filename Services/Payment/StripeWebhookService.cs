@@ -98,7 +98,9 @@ public class StripeWebhookService : IStripeWebhookService
         Event stripeEvent;
         try
         {
-            stripeEvent = EventUtility.ParseEvent(record.RawPayload);
+            // throwOnApiVersionMismatch: false — stored events may have been received
+            // at an older API version; we still want to re-process them.
+            stripeEvent = EventUtility.ParseEvent(record.RawPayload, throwOnApiVersionMismatch: false);
         }
         catch (Exception ex)
         {
@@ -151,7 +153,7 @@ public class StripeWebhookService : IStripeWebhookService
         }
     }
 
-    private async Task HandleCheckoutCompletedAsync(Stripe.Checkout.Session session, CancellationToken ct)
+    internal async Task HandleCheckoutCompletedAsync(Stripe.Checkout.Session session, CancellationToken ct)
     {
         var email = session.CustomerDetails?.Email ?? session.CustomerEmail;
         if (string.IsNullOrWhiteSpace(email))
@@ -163,6 +165,19 @@ public class StripeWebhookService : IStripeWebhookService
         var user = await _userService.RegisterOrGetAsync(email, ct);
 
         await _licenceService.EnsureStripeCustomerAsync(user.UserId, session.CustomerId, email, ct);
+
+        // Idempotency: the success page may have already provisioned the licence
+        // before this webhook arrived. Skip provisioning but still send the email.
+        var existingKey = await _licenceService.GetLicenceKeyForStripeCustomerAsync(session.CustomerId, ct);
+        if (existingKey is not null)
+        {
+            _logger.LogInformation(
+                "Licence already exists for Stripe customer {CustomerId} — skipping provision in webhook",
+                session.CustomerId);
+            try { await _emailService.SendLicenceIssuedAsync(email, existingKey, ct); }
+            catch (Exception ex) { _logger.LogError(ex, "Failed to send licence-issued email to {Email}", email); }
+            return;
+        }
 
         var isSubscription = session.Mode == "subscription";
         session.Metadata.TryGetValue("plan_type", out var planType);

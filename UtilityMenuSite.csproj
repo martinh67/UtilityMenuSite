@@ -8,6 +8,12 @@
     <UserSecretsId>utilitymenusite-dev-secrets</UserSecretsId>
   </PropertyGroup>
 
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>UtilityMenuSite.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
   <!-- Exclude test project subfolder from this project's SDK glob -->
   <ItemGroup>
     <Compile Remove="UtilityMenuSite.Tests/**" />

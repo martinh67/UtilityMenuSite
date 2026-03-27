@@ -15,7 +15,7 @@ public class UserRepository : IUserRepository
         => await _db.AppUsers.FindAsync([userId], ct);
 
     public async Task<User?> GetByEmailAsync(string email, CancellationToken ct = default)
-        => await _db.AppUsers.FirstOrDefaultAsync(u => u.Email == email, ct);
+        => await _db.AppUsers.FirstOrDefaultAsync(u => u.Email.ToLower() == email.ToLower(), ct);
 
     public async Task<User?> GetByIdentityIdAsync(string identityId, CancellationToken ct = default)
         => await _db.AppUsers.FirstOrDefaultAsync(u => u.IdentityId == identityId, ct);

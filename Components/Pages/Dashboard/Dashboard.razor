@@ -209,9 +209,9 @@ else
             _user = await UserService.GetByIdentityIdAsync(identityUser.Id);
             if (_user is null)
             {
-                _user = await UserService.RegisterOrGetAsync(identityUser.Email!);
-                if (_user.IdentityId == string.Empty)
-                    _user.IdentityId = identityUser.Id;
+                // User may have been created via checkout before registering.
+                // RegisterFromIdentityAsync finds by email and saves the IdentityId link.
+                _user = await UserService.RegisterFromIdentityAsync(identityUser.Email!, identityUser.Id);
             }
 
             _user = await UserService.GetWithLicenceAsync(_user.UserId);

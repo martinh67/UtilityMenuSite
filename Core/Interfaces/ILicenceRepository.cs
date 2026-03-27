@@ -17,6 +17,7 @@ public interface ILicenceRepository
     Task<bool> DeactivateMachineByIdAsync(Guid machineId, CancellationToken ct = default);
     Task<int> GetActiveMachineCountAsync(Guid licenceId, CancellationToken ct = default);
     Task<StripeCustomer?> GetStripeCustomerAsync(Guid userId, CancellationToken ct = default);
+    Task<StripeCustomer?> GetStripeCustomerByStripeIdAsync(string stripeCustomerId, CancellationToken ct = default);
     Task<StripeCustomer> CreateStripeCustomerAsync(StripeCustomer customer, CancellationToken ct = default);
     Task<Subscription?> GetSubscriptionByStripeIdAsync(string stripeSubId, CancellationToken ct = default);
     Task<Subscription?> GetActiveSubscriptionForUserAsync(Guid userId, CancellationToken ct = default);
