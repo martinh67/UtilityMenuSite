@@ -29,7 +29,14 @@
                         <p class="lead text-muted">
                             UtilityMenu @(_version is not null ? $"v{_version.Version}" : "") for Windows is downloading now.
                         </p>
-                        @if (!_downloadStarted)
+                        @if (_downloadError)
+                        {
+                            <div class="alert alert-danger d-inline-flex align-items-center gap-2 mt-2" role="alert">
+                                <i class="bi bi-exclamation-triangle-fill"></i>
+                                <span>The installer could not be retrieved. Please try again or <a href="/contact" class="alert-link">contact support</a>.</span>
+                            </div>
+                        }
+                        else if (!_downloadStarted)
                         {
                             <div class="spinner-border text-primary" role="status">
                                 <span class="visually-hidden">Starting download...</span>
@@ -140,6 +147,7 @@
 
 @code {
     private bool _downloadStarted;
+    private bool _downloadError;
     private bool _showProfilePrompt;
     private Core.Models.VersionManifest? _version;
 
@@ -172,7 +180,14 @@
     private async Task TriggerDownload()
     {
         _downloadStarted = true;
+        _downloadError = false;
         StateHasChanged();
-        await JS.InvokeVoidAsync("triggerFileDownload", "/api/download/installer");
+        var success = await JS.InvokeAsync<bool>("triggerFileDownload", "/api/download/installer");
+        if (!success)
+        {
+            _downloadStarted = false;
+            _downloadError = true;
+            StateHasChanged();
+        }
     }
 }
