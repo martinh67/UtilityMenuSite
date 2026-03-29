@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Options;
+using Newtonsoft.Json.Linq;
 using Stripe;
 using UtilityMenuSite.Core.Interfaces;
 using UtilityMenuSite.Data.Models;
@@ -211,16 +212,21 @@ public class StripeWebhookService : IStripeWebhookService
         }
     }
 
-    private async Task HandleInvoicePaidAsync(Invoice invoice, CancellationToken ct)
+    internal async Task HandleInvoicePaidAsync(Invoice invoice, CancellationToken ct)
     {
-        if (invoice.SubscriptionId is null) return;
+        var subscriptionId = GetInvoiceSubscriptionId(invoice);
+        if (subscriptionId is null) return;
 
-        var subscription = await _licenceRepo.GetSubscriptionByStripeIdAsync(invoice.SubscriptionId, ct);
+        var subscription = await _licenceRepo.GetSubscriptionByStripeIdAsync(subscriptionId, ct);
         if (subscription is null) return;
+
+        // Prefer the line item period end — invoice.PeriodEnd equals invoice.PeriodStart
+        // on subscription_create invoices in newer Stripe API versions.
+        var periodEnd = invoice.Lines?.Data?.FirstOrDefault()?.Period?.End ?? invoice.PeriodEnd;
 
         subscription.Status = "active";
         subscription.CurrentPeriodStart = invoice.PeriodStart;
-        subscription.CurrentPeriodEnd = invoice.PeriodEnd;
+        subscription.CurrentPeriodEnd = periodEnd;
         subscription.GracePeriodEnd = null;
         await _licenceRepo.UpdateSubscriptionAsync(subscription, ct);
 
@@ -228,18 +234,19 @@ public class StripeWebhookService : IStripeWebhookService
         if (licence is not null)
         {
             licence.IsActive = true;
-            licence.ExpiresAt = invoice.PeriodEnd;
+            licence.ExpiresAt = periodEnd;
             await _licenceRepo.UpdateAsync(licence, ct);
         }
 
-        _logger.LogInformation("Invoice paid for subscription {SubId}, extended to {End}", invoice.SubscriptionId, invoice.PeriodEnd);
+        _logger.LogInformation("Invoice paid for subscription {SubId}, extended to {End}", subscriptionId, periodEnd);
     }
 
-    private async Task HandlePaymentFailedAsync(Invoice invoice, CancellationToken ct)
+    internal async Task HandlePaymentFailedAsync(Invoice invoice, CancellationToken ct)
     {
-        if (invoice.SubscriptionId is null) return;
+        var subscriptionId = GetInvoiceSubscriptionId(invoice);
+        if (subscriptionId is null) return;
 
-        var subscription = await _licenceRepo.GetSubscriptionByStripeIdAsync(invoice.SubscriptionId, ct);
+        var subscription = await _licenceRepo.GetSubscriptionByStripeIdAsync(subscriptionId, ct);
         if (subscription is null) return;
 
         var gracePeriodEnd = DateTime.UtcNow.AddDays(_licensingSettings.GracePeriodDays);
@@ -254,7 +261,7 @@ public class StripeWebhookService : IStripeWebhookService
             await _licenceRepo.UpdateAsync(licence, ct);
         }
 
-        _logger.LogWarning("Payment failed for subscription {SubId}, grace period until {GraceEnd}", invoice.SubscriptionId, gracePeriodEnd);
+        _logger.LogWarning("Payment failed for subscription {SubId}, grace period until {GraceEnd}", subscriptionId, gracePeriodEnd);
 
         var user = await _userService.GetByIdAsync(subscription.UserId, ct);
         if (user is not null)
@@ -271,7 +278,7 @@ public class StripeWebhookService : IStripeWebhookService
         }
     }
 
-    private async Task HandleSubscriptionUpdatedAsync(StripeSubscription stripeSub, CancellationToken ct)
+    internal async Task HandleSubscriptionUpdatedAsync(StripeSubscription stripeSub, CancellationToken ct)
     {
         var subscription = await _licenceRepo.GetSubscriptionByStripeIdAsync(stripeSub.Id, ct);
         if (subscription is null) return;
@@ -287,7 +294,26 @@ public class StripeWebhookService : IStripeWebhookService
         _logger.LogInformation("Subscription {SubId} updated to status {Status}", stripeSub.Id, stripeSub.Status);
     }
 
-    private async Task HandleSubscriptionDeletedAsync(StripeSubscription stripeSub, CancellationToken ct)
+    /// <summary>
+    /// Extracts the Stripe subscription ID from an Invoice.
+    /// Stripe.net 47.x maps <c>Invoice.SubscriptionId</c> to the legacy top-level
+    /// <c>"subscription"</c> JSON field. Newer webhook payloads (Stripe API 2025+) move
+    /// the subscription ID to <c>parent.subscription_details.subscription</c>, which the
+    /// SDK does not expose as a typed property. We fall back to the raw JObject.
+    /// </summary>
+    private static string? GetInvoiceSubscriptionId(Invoice invoice)
+    {
+        if (!string.IsNullOrWhiteSpace(invoice.SubscriptionId))
+            return invoice.SubscriptionId;
+
+        return invoice.RawJObject
+            ?["parent"]
+            ?["subscription_details"]
+            ?["subscription"]
+            ?.Value<string>();
+    }
+
+    internal async Task HandleSubscriptionDeletedAsync(StripeSubscription stripeSub, CancellationToken ct)
     {
         var subscription = await _licenceRepo.GetSubscriptionByStripeIdAsync(stripeSub.Id, ct);
         if (subscription is null) return;

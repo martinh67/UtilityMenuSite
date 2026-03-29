@@ -41,8 +41,8 @@ else
                 <div class="row g-3 mb-3">
                     <div class="col-sm-6 col-md-4">
                         <div class="text-muted small mb-1">Status</div>
-                        <span class="badge @(_licence.IsActive ? "bg-success" : "bg-danger") fs-6">
-                            @(_licence.IsActive ? "Active" : "Inactive")
+                        <span class="badge @(IsLicenceEffectivelyActive(_licence) ? "bg-success" : "bg-danger") fs-6">
+                            @(IsLicenceEffectivelyActive(_licence) ? "Active" : "Inactive")
                         </span>
                     </div>
                     <div class="col-sm-6 col-md-4">
@@ -144,6 +144,9 @@ else
         if (!firstRender) return;
         await LoadAsync();
     }
+
+    private static bool IsLicenceEffectivelyActive(Data.Models.Licence l) =>
+        l.IsActive && (!l.ExpiresAt.HasValue || l.ExpiresAt.Value > DateTime.UtcNow);
 
     private async Task LoadAsync()
     {

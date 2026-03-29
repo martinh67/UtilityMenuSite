@@ -80,8 +80,8 @@ else
                             <dd class="col-sm-8 small">@_licence.LicenceType.ToUpperInvariant()</dd>
                             <dt class="col-sm-4 text-muted small">Status</dt>
                             <dd class="col-sm-8">
-                                <span class="badge @(_licence.IsActive ? "bg-success" : "bg-danger")">
-                                    @(_licence.IsActive ? "Active" : "Inactive")
+                                <span class="badge @(IsLicenceEffectivelyActive(_licence) ? "bg-success" : "bg-danger")">
+                                    @(IsLicenceEffectivelyActive(_licence) ? "Active" : "Inactive")
                                 </span>
                             </dd>
                             @if (_licence.ExpiresAt.HasValue)
@@ -248,6 +248,9 @@ else
             _loading = false;
         }
     }
+
+    private static bool IsLicenceEffectivelyActive(Data.Models.Licence l) =>
+        l.IsActive && (!l.ExpiresAt.HasValue || l.ExpiresAt.Value > DateTime.UtcNow);
 
     private void RequestDeactivate(Guid machineId) => _confirmDeactivateId = machineId;
     private void CancelDeactivate() => _confirmDeactivateId = null;

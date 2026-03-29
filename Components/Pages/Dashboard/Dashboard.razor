@@ -52,8 +52,8 @@ else
                         @if (_licence is not null)
                         {
                             <div class="fs-5 fw-bold text-dark">@_licence.LicenceType.ToUpperInvariant()</div>
-                            <span class="badge @(_licence.IsActive ? "bg-success-subtle text-success" : "bg-danger-subtle text-danger") align-self-start">
-                                @(_licence.IsActive ? "Active" : "Inactive")
+                            <span class="badge @(IsLicenceEffectivelyActive(_licence) ? "bg-success-subtle text-success" : "bg-danger-subtle text-danger") align-self-start">
+                                @(IsLicenceEffectivelyActive(_licence) ? "Active" : "Inactive")
                             </span>
                         }
                         else
@@ -238,6 +238,12 @@ else
             StateHasChanged();
         }
     }
+
+    // A licence is effectively active only if both the IsActive flag is set AND
+    // ExpiresAt (if present) has not yet passed. This handles the window between
+    // a grace period expiring and Stripe firing customer.subscription.deleted.
+    private static bool IsLicenceEffectivelyActive(Data.Models.Licence l) =>
+        l.IsActive && (!l.ExpiresAt.HasValue || l.ExpiresAt.Value > DateTime.UtcNow);
 
     private static string GetStatusBadgeSubtle(string status) => status switch
     {
