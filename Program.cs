@@ -15,6 +15,7 @@ using UtilityMenuSite.Services.Contact;
 using UtilityMenuSite.Services.Licensing;
 using UtilityMenuSite.Services.Payment;
 using UtilityMenuSite.Services.User;
+using UtilityMenuSite.Infrastructure.Security;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -206,7 +207,9 @@ using (var scope = app.Services.CreateScope())
     }
 
     // Seed roles and promote known admin accounts on every startup.
-    await SeedData.SeedAsync(scope.ServiceProvider);
+    // The default admin user is only created in Development to avoid
+    // hardcoded credentials in production.
+    await SeedData.SeedAsync(scope.ServiceProvider, app.Environment.IsDevelopment());
     startupLogger.LogInformation("Seed data applied successfully");
 }
 
@@ -231,9 +234,11 @@ app.UseForwardedHeaders(forwardedOptions);
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error");
+    app.UseStatusCodePagesWithReExecute("/Error");
     app.UseHsts();
 }
 
+app.UseSecurityHeaders();
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseRateLimiter();
