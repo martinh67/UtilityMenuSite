@@ -3,6 +3,12 @@ name: Deploy — UAT
 on:
   push:
     branches: [ develop ]
+    paths-ignore:
+      - '**.md'
+      - 'wwwroot/docs/**'
+      - 'wwwroot/css/**'
+      - 'wwwroot/js/**'
+      - 'LICENSE'
   workflow_dispatch:
 
 concurrency:
@@ -14,18 +20,24 @@ jobs:
     uses: ./.github/workflows/reusable-build.yml
     with:
       configuration: Release
-      upload-artifact: true
+      publish: true
       artifact-name: app-uat
+      retention-days: 7
 
   test:
     needs: build
     uses: ./.github/workflows/reusable-test.yml
+    with:
+      artifact-name: app-uat
+      test-results-name: test-results-uat
+      retention-days: 7
 
   migrate:
     needs: test
     uses: ./.github/workflows/reusable-migrate.yml
     with:
       environment: UAT
+      artifact-name: app-uat
     secrets:
       connection-string: ${{ secrets.UAT_CONNECTION_STRING }}
 

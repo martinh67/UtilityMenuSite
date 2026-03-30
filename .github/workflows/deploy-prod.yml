@@ -4,6 +4,12 @@ on:
   push:
     branches:
       - main
+    paths-ignore:
+      - '**.md'
+      - 'wwwroot/docs/**'
+      - 'wwwroot/css/**'
+      - 'wwwroot/js/**'
+      - 'LICENSE'
   workflow_dispatch:
     inputs:
       confirm:
@@ -16,34 +22,31 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  guard:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Confirm deployment
-        if: github.event_name == 'workflow_dispatch'
-        run: |
-          if [ "${{ github.event.inputs.confirm }}" != "deploy" ]; then
-            echo "Deployment not confirmed. Exiting."
-            exit 1
-          fi
-
   build:
-    needs: guard
+    if: >-
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.confirm == 'deploy')
     uses: ./.github/workflows/reusable-build.yml
     with:
       configuration: Release
-      upload-artifact: true
+      publish: true
       artifact-name: app-prod
+      retention-days: 14
 
   test:
     needs: build
     uses: ./.github/workflows/reusable-test.yml
+    with:
+      artifact-name: app-prod
+      test-results-name: test-results-prod
+      retention-days: 14
 
   migrate:
     needs: test
     uses: ./.github/workflows/reusable-migrate.yml
     with:
       environment: Production
+      artifact-name: app-prod
     secrets:
       connection-string: ${{ secrets.PROD_CONNECTION_STRING }}
 
@@ -65,5 +68,5 @@ jobs:
       - name: Deployment summary
         run: |
           echo "Production deployment ${{ needs.deploy.result }} at $(date -u)"
-          echo "Tag: ${{ github.ref_name }}"
+          echo "Ref: ${{ github.ref_name }}"
           echo "Triggered by: ${{ github.actor }}"

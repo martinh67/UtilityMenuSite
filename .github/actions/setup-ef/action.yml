@@ -10,9 +10,18 @@ inputs:
 runs:
   using: 'composite'
   steps:
+    - name: Cache dotnet-ef
+      id: cache-ef
+      uses: actions/cache@v4
+      with:
+        path: ~/.dotnet/tools
+        key: ${{ runner.os }}-dotnet-ef-${{ inputs.ef-version }}
+
     - name: Install dotnet-ef
+      if: steps.cache-ef.outputs.cache-hit != 'true'
       shell: bash
-      run: |
-        dotnet tool install --global dotnet-ef --version ${{ inputs.ef-version }} \
-          || dotnet tool update --global dotnet-ef --version ${{ inputs.ef-version }}
-        echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
+      run: dotnet tool install --global dotnet-ef --version ${{ inputs.ef-version }}
+
+    - name: Add tools to PATH
+      shell: bash
+      run: echo "$HOME/.dotnet/tools" >> $GITHUB_PATH

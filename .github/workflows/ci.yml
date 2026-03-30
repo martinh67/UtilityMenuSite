@@ -1,10 +1,22 @@
 name: CI
 
 on:
-  push:
-    branches: [ main, develop, 'feature/**', 'fix/**' ]
   pull_request:
     branches: [ main, develop ]
+    paths-ignore:
+      - '**.md'
+      - 'wwwroot/docs/**'
+      - 'wwwroot/css/**'
+      - 'wwwroot/js/**'
+      - 'LICENSE'
+  push:
+    branches: [ 'fix/**' ]
+    paths-ignore:
+      - '**.md'
+      - 'wwwroot/docs/**'
+      - 'wwwroot/css/**'
+      - 'wwwroot/js/**'
+      - 'LICENSE'
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -15,9 +27,13 @@ jobs:
     uses: ./.github/workflows/reusable-build.yml
     with:
       configuration: Release
+      artifact-name: app-ci
 
   test:
     needs: build
     uses: ./.github/workflows/reusable-test.yml
     with:
       configuration: Release
+      artifact-name: app-ci
+      test-results-name: test-results-ci
+      retention-days: 1
