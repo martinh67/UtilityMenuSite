@@ -4,7 +4,7 @@ Instructions for Claude Code when working in this repository.
 
 ## Project Overview
 
-**UtilityMenuSite** is a Blazor Web App (.NET 10) that serves as the marketing site, customer portal, licensing backend, and Stripe payment integration for the **UtilityMenu** Excel add-in.
+**UtilityMenuSite** is a Blazor Web App (.NET 10) that serves as the marketing site, customer portal, licensing backend and Stripe payment integration for the **UtilityMenu** Excel add-in.
 
 ## Architecture
 
