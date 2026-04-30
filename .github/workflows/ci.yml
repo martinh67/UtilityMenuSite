@@ -9,14 +9,11 @@ on:
       - 'wwwroot/css/**'
       - 'wwwroot/js/**'
       - 'LICENSE'
-  push:
-    branches: [ 'fix/**' ]
-    paths-ignore:
-      - '**.md'
-      - 'wwwroot/docs/**'
-      - 'wwwroot/css/**'
-      - 'wwwroot/js/**'
-      - 'LICENSE'
+
+# Note: no `push:` trigger here. Push events go to deploy-dev / deploy-uat /
+# deploy-prod, each of which runs build + test inline as part of the deploy
+# pipeline. CI fires only on PR — that's the single test gate before merge.
+# Mirrors InkyAPI's posture; halves Actions minutes on feature-branch pushes.
 
 concurrency:
   group: ci-${{ github.ref }}
