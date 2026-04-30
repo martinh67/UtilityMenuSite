@@ -3,7 +3,7 @@
 @rendermode InteractiveServer
 @layout AdminLayout
 @attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
-@inject IBlogService BlogService
+@inject IUtilityMenuApiClient Api
 @inject NavigationManager Nav
 
 <PageTitle>@(_isNew ? "New Post" : "Edit Post") — Admin</PageTitle>
@@ -96,8 +96,8 @@ else
 @code {
     [Parameter] public Guid PostId { get; set; }
 
-    private readonly Core.Models.CreateBlogPostDto _model = new();
-    private List<Data.Models.BlogCategory> _categories = new();
+    private readonly EditModel _model = new();
+    private List<BlogCategoryDto> _categories = new();
     private string? _errorMessage;
     private bool _loading = true;
     private bool _saving;
@@ -105,18 +105,20 @@ else
 
     protected override async Task OnParametersSetAsync()
     {
-        _categories = await BlogService.GetCategoriesAsync();
+        var categoriesResult = await Api.GetBlogCategoriesAsync();
+        if (categoriesResult.IsSuccess) _categories = categoriesResult.Value?.ToList() ?? new();
 
         if (!_isNew)
         {
-            var post = await BlogService.GetPostByIdAsync(PostId);
-            if (post is not null)
+            var postResult = await Api.GetPostByIdAsync(PostId);
+            if (postResult.IsSuccess && postResult.Value is not null)
             {
+                var post = postResult.Value;
                 _model.Title = post.Title;
                 _model.Slug = post.Slug;
                 _model.CategoryId = post.CategoryId;
-                _model.Summary = post.Summary ?? "";
-                _model.Body = post.Body;
+                _model.Summary = post.Summary ?? string.Empty;
+                _model.Body = post.Body ?? string.Empty;
                 _model.CoverImageUrl = post.CoverImageUrl;
                 _model.IsPublished = post.IsPublished;
                 _model.IsFeatured = post.IsFeatured;
@@ -145,19 +147,44 @@ else
         _saving = true;
         _errorMessage = null;
 
-        try
-        {
-            if (_isNew)
-                await BlogService.CreatePostAsync(_model);
-            else
-                await BlogService.UpdatePostAsync(PostId, _model);
+        var request = new CreateOrUpdateBlogPostRequest(
+            _model.Title!, _model.Slug!, _model.Summary, _model.Body!,
+            _model.CoverImageUrl, _model.MetaTitle, _model.MetaDescription,
+            _model.IsPublished, _model.IsFeatured, _model.CategoryId);
 
-            Nav.NavigateTo("/admin/blog");
-        }
-        catch (Exception ex)
+        var result = _isNew
+            ? await Api.CreatePostAsync(request)
+            : await Api.UpdatePostAsync(PostId, request);
+
+        if (result.IsSuccess)
         {
-            _errorMessage = $"Failed to save post: {ex.Message}";
+            Nav.NavigateTo("/admin/blog");
+            return;
         }
+
+        _errorMessage = $"Failed to save post: {result.ErrorMessage}";
         _saving = false;
+    }
+
+    private class EditModel
+    {
+        [System.ComponentModel.DataAnnotations.Required, System.ComponentModel.DataAnnotations.MaxLength(200)]
+        public string? Title { get; set; }
+
+        [System.ComponentModel.DataAnnotations.Required, System.ComponentModel.DataAnnotations.MaxLength(200)]
+        public string? Slug { get; set; }
+
+        [System.ComponentModel.DataAnnotations.Required, System.ComponentModel.DataAnnotations.MaxLength(500)]
+        public string? Summary { get; set; }
+
+        [System.ComponentModel.DataAnnotations.Required]
+        public string? Body { get; set; }
+
+        public string? CoverImageUrl { get; set; }
+        public string? MetaTitle { get; set; }
+        public string? MetaDescription { get; set; }
+        public bool IsPublished { get; set; }
+        public bool IsFeatured { get; set; }
+        public Guid? CategoryId { get; set; }
     }
 }

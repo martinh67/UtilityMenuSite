@@ -1,6 +1,6 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using UtilityMenuSite.Core.Models.Api;
 
 namespace UtilityMenuSite.Services.Auth;
@@ -44,27 +44,20 @@ public class AuthCookieIssuer : IAuthCookieIssuer
         foreach (var role in u.Roles)
             claims.Add(new Claim(ClaimTypes.Role, role));
 
-        var identity = new ClaimsIdentity(claims, IdentityConstants.ApplicationScheme);
+        var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
         var principal = new ClaimsPrincipal(identity);
 
         var props = new AuthenticationProperties
         {
             IsPersistent = persistent,
-            // Cookie lifetime mirrors the refresh-chain max-age (7d) — once the
-            // refresh token can no longer be rolled, the cookie is meaningless
-            // anyway. Sliding expiration is configured on the cookie scheme.
+            // Cookie lifetime mirrors the API's refresh-chain max-age (7d) — once
+            // the refresh token can no longer be rolled, the cookie is meaningless.
             ExpiresUtc = DateTimeOffset.UtcNow.AddDays(7),
         };
 
-        // Reuse Identity's existing cookie scheme — it's already configured in
-        // Program.cs (ConfigureApplicationCookie) and uses the persisted Data
-        // Protection key ring, so issuing into it works alongside any
-        // remaining Identity-based code during the Phase 3 migration. Once
-        // Identity is fully removed (Phase 3 demolition step), this constant
-        // can switch to a generic "Cookies" scheme.
-        await httpContext.SignInAsync(IdentityConstants.ApplicationScheme, principal, props);
+        await httpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal, props);
     }
 
     public Task ClearAsync(HttpContext httpContext)
-        => httpContext.SignOutAsync(IdentityConstants.ApplicationScheme);
+        => httpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
 }

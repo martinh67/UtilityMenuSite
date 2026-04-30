@@ -2,12 +2,7 @@
 @rendermode InteractiveServer
 @layout DashboardLayout
 @attribute [Authorize]
-@using Microsoft.AspNetCore.Identity
-@inject AuthenticationStateProvider AuthProvider
-@inject UserManager<Data.Models.ApplicationUser> UserManager
-@inject IUserService UserService
-@inject ILicenceService LicenceService
-@inject IStripeService StripeService
+@inject IUtilityMenuApiClient Api
 @inject NavigationManager Nav
 @inject ILogger<Billing> Logger
 
@@ -33,7 +28,6 @@ else
 
     @if (_subscription is not null)
     {
-        <!-- Subscription Details -->
         <div class="card border-0 shadow-sm mb-4">
             <div class="card-header bg-transparent border-0 fw-semibold">
                 <i class="bi bi-credit-card me-2 text-primary"></i>Current Subscription
@@ -92,13 +86,10 @@ else
                     </div>
                 }
 
-                @if (_stripeCustomerId is not null)
+                @if (!string.IsNullOrEmpty(_subscription.StripeCustomerId))
                 {
                     <button class="btn btn-outline-primary" @onclick="ManageBilling" disabled="@_billingLoading">
-                        @if (_billingLoading)
-                        {
-                            <span class="spinner-border spinner-border-sm me-2"></span>
-                        }
+                        @if (_billingLoading) { <span class="spinner-border spinner-border-sm me-2"></span> }
                         <i class="bi bi-box-arrow-up-right me-2"></i>Manage Billing in Stripe
                     </button>
                     <p class="text-muted small mt-2 mb-0">
@@ -123,24 +114,19 @@ else
     }
     else
     {
-        <!-- No subscription -->
         <div class="card border-0 shadow-sm text-center py-5">
             <div class="card-body">
                 <i class="bi bi-credit-card text-muted" style="font-size:3rem;"></i>
                 <h5 class="mt-3 fw-semibold">No active subscription</h5>
                 <p class="text-muted">Upgrade to Pro to unlock all modules, priority support, and more.</p>
-                <a href="/pricing" class="btn btn-primary btn-lg">
-                    <i class="bi bi-arrow-up-circle me-2"></i>View Pricing
-                </a>
+                <a href="/pricing" class="btn btn-primary btn-lg"><i class="bi bi-arrow-up-circle me-2"></i>View Pricing</a>
             </div>
         </div>
     }
 }
 
 @code {
-    private Data.Models.User? _user;
-    private Data.Models.Subscription? _subscription;
-    private string? _stripeCustomerId;
+    private SubscriptionDto? _subscription;
     private bool _loading = true;
     private bool _billingLoading;
     private string? _message;
@@ -149,51 +135,31 @@ else
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
-        await LoadAsync();
-    }
-
-    private async Task LoadAsync()
-    {
-        try
+        var result = await Api.GetSubscriptionAsync();
+        if (result.IsSuccess) _subscription = result.Value;
+        else if (result.ErrorCode != "http_404")
         {
-            var authState = await AuthProvider.GetAuthenticationStateAsync();
-            var identityUser = await UserManager.GetUserAsync(authState.User);
-            if (identityUser is null) { Nav.NavigateTo("/account/login"); return; }
-
-            _user = await UserService.GetByIdentityIdAsync(identityUser.Id);
-            if (_user is null) { Nav.NavigateTo("/dashboard"); return; }
-
-            _subscription = await LicenceService.GetSubscriptionAsync(_user.UserId);
-            _stripeCustomerId = await StripeService.GetStripeCustomerIdForUserAsync(_user.UserId);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Failed to load billing page");
+            Logger.LogWarning("Subscription load failed: {Code} {Message}", result.ErrorCode, result.ErrorMessage);
             _message = "Failed to load billing details.";
             _messageType = "danger";
         }
-        finally
-        {
-            _loading = false;
-            StateHasChanged();
-        }
+        _loading = false;
+        StateHasChanged();
     }
 
     private async Task ManageBilling()
     {
         _billingLoading = true;
         StateHasChanged();
-        try
+        var result = await Api.CreateBillingPortalAsync(new BillingPortalRequest(Nav.Uri));
+        if (result.IsSuccess && result.Value is not null)
         {
-            var result = await StripeService.CreateBillingPortalSessionAsync(_stripeCustomerId!);
-            Nav.NavigateTo(result.Url, forceLoad: true);
+            Nav.NavigateTo(result.Value.PortalUrl, forceLoad: true);
+            return;
         }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Failed to create billing portal session");
-            _message = "Failed to open billing portal. Please try again.";
-            _messageType = "danger";
-        }
+        Logger.LogWarning("Billing portal failed: {Code} {Message}", result.ErrorCode, result.ErrorMessage);
+        _message = "Failed to open billing portal. Please try again.";
+        _messageType = "danger";
         _billingLoading = false;
         StateHasChanged();
     }

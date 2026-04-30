@@ -2,11 +2,8 @@
 @rendermode InteractiveServer
 @layout AuthLayout
 @using Microsoft.AspNetCore.Authorization
-@using Microsoft.AspNetCore.Identity
 @attribute [Authorize]
-@inject AuthenticationStateProvider AuthProvider
-@inject UserManager<Data.Models.ApplicationUser> UserManager
-@inject IUserService UserService
+@inject IUtilityMenuApiClient Api
 @inject NavigationManager Nav
 
 <PageTitle>Complete Your Profile — UtilityMenu</PageTitle>
@@ -86,7 +83,6 @@
     private readonly ProfileModel _model = new();
     private string? _errorMessage;
     private bool _submitting;
-    private Data.Models.User? _user;
 
     private readonly List<string> _availableInterests =
     [
@@ -95,43 +91,38 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var authState = await AuthProvider.GetAuthenticationStateAsync();
-        var identityUser = await UserManager.GetUserAsync(authState.User);
-        if (identityUser is null) { Nav.NavigateTo("/account/login", forceLoad: true); return; }
-
-        _user = await UserService.GetByIdentityIdAsync(identityUser.Id);
-        if (_user is not null)
+        var profile = await Api.GetProfileAsync();
+        if (!profile.IsSuccess || profile.Value is null)
         {
-            _model.DisplayName = _user.DisplayName;
-            _model.Organisation = _user.Organisation;
-            _model.JobRole = _user.JobRole;
-            if (!string.IsNullOrWhiteSpace(_user.UsageInterests))
-                _model.SelectedInterests = [.. _user.UsageInterests.Split(',', StringSplitOptions.RemoveEmptyEntries)];
+            // Not authenticated or API unreachable; bounce to login.
+            Nav.NavigateTo("/account/login", forceLoad: true);
+            return;
         }
+
+        _model.DisplayName = profile.Value.DisplayName;
+        _model.Organisation = profile.Value.Organisation;
+        _model.JobRole = profile.Value.JobRole;
+        if (!string.IsNullOrWhiteSpace(profile.Value.UsageInterests))
+            _model.SelectedInterests = [.. profile.Value.UsageInterests.Split(',', StringSplitOptions.RemoveEmptyEntries)];
     }
 
     private async Task HandleSubmit()
     {
-        if (_user is null) return;
         _submitting = true;
         _errorMessage = null;
 
-        try
+        var interests = string.Join(",", _model.SelectedInterests);
+        var result = await Api.UpdateProfileAsync(new UpdateProfileRequest(
+            _model.DisplayName, _model.Organisation, _model.JobRole, interests));
+
+        if (result.IsSuccess)
         {
-            var interests = string.Join(",", _model.SelectedInterests);
-            await UserService.UpdateProfileAsync(
-                _user.UserId,
-                _model.DisplayName,
-                _model.Organisation,
-                _model.JobRole,
-                interests);
             Nav.NavigateTo(ReturnUrl ?? "/dashboard");
+            return;
         }
-        catch (Exception)
-        {
-            _errorMessage = "Failed to save profile. Please try again.";
-            _submitting = false;
-        }
+
+        _errorMessage = result.ErrorMessage ?? "Failed to save profile. Please try again.";
+        _submitting = false;
     }
 
     private void Skip() => Nav.NavigateTo(ReturnUrl ?? "/dashboard");

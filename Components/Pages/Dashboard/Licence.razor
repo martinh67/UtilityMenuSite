@@ -2,11 +2,7 @@
 @rendermode InteractiveServer
 @layout DashboardLayout
 @attribute [Authorize]
-@using Microsoft.AspNetCore.Identity
-@inject AuthenticationStateProvider AuthProvider
-@inject UserManager<Data.Models.ApplicationUser> UserManager
-@inject IUserService UserService
-@inject ILicenceService LicenceService
+@inject IUtilityMenuApiClient Api
 @inject NavigationManager Nav
 @inject ILogger<Licence> Logger
 
@@ -32,7 +28,6 @@ else
 
     @if (_licence is not null)
     {
-        <!-- Licence Key Card -->
         <div class="card border-0 shadow-sm mb-4">
             <div class="card-header bg-transparent border-0 fw-semibold">
                 <i class="bi bi-key me-2 text-primary"></i>Licence Key
@@ -41,8 +36,8 @@ else
                 <div class="row g-3 mb-3">
                     <div class="col-sm-6 col-md-4">
                         <div class="text-muted small mb-1">Status</div>
-                        <span class="badge @(IsLicenceEffectivelyActive(_licence) ? "bg-success" : "bg-danger") fs-6">
-                            @(IsLicenceEffectivelyActive(_licence) ? "Active" : "Inactive")
+                        <span class="badge @(_licence.IsActive ? "bg-success" : "bg-danger") fs-6">
+                            @(_licence.IsActive ? "Active" : "Inactive")
                         </span>
                     </div>
                     <div class="col-sm-6 col-md-4">
@@ -64,17 +59,16 @@ else
             </div>
         </div>
 
-        <!-- Module Entitlements -->
         <div class="card border-0 shadow-sm">
             <div class="card-header bg-transparent border-0 fw-semibold">
                 <i class="bi bi-puzzle me-2 text-primary"></i>Module Entitlements
-                <span class="badge bg-secondary ms-2">@_licence.LicenceModules.Count modules</span>
+                <span class="badge bg-secondary ms-2">@_licence.GrantedModules.Count modules</span>
             </div>
             <div class="card-body">
-                @if (_licence.LicenceModules.Any())
+                @if (_licence.GrantedModules.Count > 0)
                 {
                     <div class="row g-3">
-                        @foreach (var lm in _licence.LicenceModules.OrderBy(m => m.Module?.Tier).ThenBy(m => m.Module?.SortOrder))
+                        @foreach (var module in _licence.GrantedModules.OrderBy(m => m, StringComparer.Ordinal))
                         {
                             <div class="col-sm-6 col-lg-4">
                                 <div class="d-flex align-items-start gap-3 p-3 bg-light rounded">
@@ -82,18 +76,7 @@ else
                                         <i class="bi bi-check-circle-fill fs-5"></i>
                                     </div>
                                     <div>
-                                        <div class="fw-semibold small">@lm.Module?.DisplayName</div>
-                                        <div class="text-muted" style="font-size:0.75rem;">
-                                            @lm.Module?.Tier tier
-                                            @if (lm.ExpiresAt.HasValue)
-                                            {
-                                                <span> · expires @lm.ExpiresAt.Value.ToString("MMM d, yyyy")</span>
-                                            }
-                                        </div>
-                                        @if (!string.IsNullOrWhiteSpace(lm.Module?.Description))
-                                        {
-                                            <div class="text-muted mt-1" style="font-size:0.75rem;">@lm.Module.Description</div>
-                                        }
+                                        <div class="fw-semibold small">@module</div>
                                     </div>
                                 </div>
                             </div>
@@ -133,8 +116,7 @@ else
 }
 
 @code {
-    private Data.Models.User? _user;
-    private Data.Models.Licence? _licence;
+    private LicenceDetailDto? _licence;
     private bool _loading = true;
     private string? _message;
     private string _messageType = "info";
@@ -142,36 +124,15 @@ else
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
-        await LoadAsync();
-    }
-
-    private static bool IsLicenceEffectivelyActive(Data.Models.Licence l) =>
-        l.IsActive && (!l.ExpiresAt.HasValue || l.ExpiresAt.Value > DateTime.UtcNow);
-
-    private async Task LoadAsync()
-    {
-        try
+        var result = await Api.GetActiveLicenceAsync();
+        if (result.IsSuccess) _licence = result.Value;
+        else if (result.ErrorCode != "http_404")
         {
-            var authState = await AuthProvider.GetAuthenticationStateAsync();
-            var identityUser = await UserManager.GetUserAsync(authState.User);
-            if (identityUser is null) { Nav.NavigateTo("/account/login"); return; }
-
-            _user = await UserService.GetByIdentityIdAsync(identityUser.Id);
-            if (_user is null) { Nav.NavigateTo("/dashboard"); return; }
-
-            var userWithLicence = await UserService.GetWithLicenceAsync(_user.UserId);
-            _licence = userWithLicence?.Licences?.FirstOrDefault(l => l.IsActive);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Failed to load licence page");
+            Logger.LogWarning("Licence load failed: {Code} {Message}", result.ErrorCode, result.ErrorMessage);
             _message = "Failed to load licence details.";
             _messageType = "danger";
         }
-        finally
-        {
-            _loading = false;
-            StateHasChanged();
-        }
+        _loading = false;
+        StateHasChanged();
     }
 }

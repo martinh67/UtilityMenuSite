@@ -1,5 +1,5 @@
 @page "/blog/{Slug}"
-@inject IBlogService BlogService
+@inject IUtilityMenuApiClient Api
 @inject NavigationManager Nav
 
 @if (_loading)
@@ -27,7 +27,6 @@ else
         }
     </HeadContent>
 
-    <!-- Cover Image -->
     @if (!string.IsNullOrWhiteSpace(_post.CoverImageUrl))
     {
         <div style="height:320px; overflow:hidden; background:#f8f9fa;">
@@ -43,37 +42,13 @@ else
                 </a>
 
                 <div class="d-flex align-items-center gap-2 mb-3">
-                    <span class="badge bg-primary-subtle text-primary">@_post.Category.Name</span>
+                    <span class="badge bg-primary-subtle text-primary">@(_post.CategoryName ?? "Blog")</span>
                     <small class="text-muted">@_post.PublishedAt?.ToString("MMMM d, yyyy")</small>
-                    @if (_post.Author is not null)
-                    {
-                        <small class="text-muted">by @(_post.Author.DisplayName ?? _post.Author.Email)</small>
-                    }
                 </div>
 
                 <h1 class="fw-bold mb-4">@_post.Title</h1>
 
                 <MarkdownRenderer Content="@_post.Body" />
-
-                <!-- Related Posts -->
-                @if (_relatedPosts.Any())
-                {
-                    <hr class="my-5" />
-                    <h4 class="fw-bold mb-3">Related Posts</h4>
-                    <div class="row g-3">
-                        @foreach (var related in _relatedPosts)
-                        {
-                            <div class="col-md-4">
-                                <div class="card border-0 shadow-sm h-100">
-                                    <div class="card-body">
-                                        <span class="badge bg-light text-dark mb-1">@related.Category.Name</span>
-                                        <h6><a href="/blog/@related.Slug" class="text-decoration-none">@related.Title</a></h6>
-                                    </div>
-                                </div>
-                            </div>
-                        }
-                    </div>
-                }
             </div>
         </div>
     </div>
@@ -82,16 +57,14 @@ else
 @code {
     [Parameter] public string Slug { get; set; } = string.Empty;
 
-    private Data.Models.BlogPost? _post;
-    private List<Data.Models.BlogPost> _relatedPosts = new();
+    private BlogPostDto? _post;
     private bool _loading = true;
 
     protected override async Task OnParametersSetAsync()
     {
         _loading = true;
-        _post = await BlogService.GetPostBySlugAsync(Slug);
-        if (_post is not null)
-            _relatedPosts = await BlogService.GetRelatedPostsAsync(_post.CategoryId, _post.PostId, 3);
+        var result = await Api.GetPostBySlugAsync(Slug);
+        if (result.IsSuccess) _post = result.Value;
         _loading = false;
     }
 }

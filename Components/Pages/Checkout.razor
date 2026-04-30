@@ -1,13 +1,7 @@
 @page "/pricing/checkout"
 @rendermode InteractiveServer
 @attribute [Authorize]
-@using Microsoft.AspNetCore.Identity
-@using Microsoft.Extensions.Options
-@using UtilityMenuSite.Infrastructure.Configuration
-@inject AuthenticationStateProvider AuthProvider
-@inject UserManager<Data.Models.ApplicationUser> UserManager
-@inject IStripeService StripeService
-@inject IOptions<StripeSettings> StripeOptions
+@inject IUtilityMenuApiClient Api
 @inject NavigationManager Nav
 @inject ILogger<Checkout> Logger
 
@@ -19,7 +13,6 @@
 <div class="container py-6">
     <div class="row justify-content-center">
         <div class="col-lg-5 col-md-7">
-
             @if (_loading)
             {
                 <LoadingSpinner Message="Preparing your checkout..." />
@@ -33,7 +26,6 @@
             }
             else
             {
-                <!-- Order Summary -->
                 <div class="text-center mb-4">
                     <h1 class="fw-bold fs-2">Complete Your Order</h1>
                     <p class="text-muted">You're one step away from unlocking UtilityMenu Pro.</p>
@@ -64,21 +56,15 @@
                         }
 
                         <hr />
-
                         <ul class="list-unstyled mb-0 small text-muted">
                             <li class="mb-1"><i class="bi bi-check-lg text-success me-2"></i>All Pro modules unlocked immediately</li>
                             <li class="mb-1"><i class="bi bi-check-lg text-success me-2"></i>Up to 2 active machines</li>
                             <li class="mb-1"><i class="bi bi-check-lg text-success me-2"></i>Priority support</li>
                             <li class="mb-1"><i class="bi bi-check-lg text-success me-2"></i>Cancel any time</li>
-                            @if (_isAnnual)
-                            {
-                                <li><i class="bi bi-check-lg text-success me-2"></i>25% saving vs monthly</li>
-                            }
                         </ul>
                     </div>
                 </div>
 
-                <!-- Checkout Button -->
                 <div class="d-grid gap-2">
                     <button class="btn btn-primary btn-lg fw-semibold" @onclick="ProceedToStripe" disabled="@_checkoutLoading">
                         @if (_checkoutLoading)
@@ -100,7 +86,6 @@
                     Payment is handled securely by Stripe. We never store your card details.
                 </p>
             }
-
         </div>
     </div>
 </div>
@@ -122,71 +107,41 @@
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
-        await LoadAsync();
-    }
-
-    private async Task LoadAsync()
-    {
         _isAnnual = string.Equals(Plan, "annual", StringComparison.OrdinalIgnoreCase);
 
-        var prices = StripeOptions.Value.Prices;
-        var priceId = _isAnnual ? prices.ProAnnual : prices.ProMonthly;
-
-        if (string.IsNullOrWhiteSpace(priceId))
+        var profile = await Api.GetProfileAsync();
+        if (!profile.IsSuccess || profile.Value is null)
         {
-            _error = "Checkout is not available right now. Please try again later or contact support.";
-            _loading = false;
-            StateHasChanged();
+            Nav.NavigateTo($"/account/login?returnUrl={Uri.EscapeDataString("/pricing/checkout?plan=" + (Plan ?? "monthly"))}");
             return;
         }
-
-        try
-        {
-            var authState = await AuthProvider.GetAuthenticationStateAsync();
-            var identityUser = await UserManager.GetUserAsync(authState.User);
-            if (identityUser is null)
-            {
-                Nav.NavigateTo($"/account/login?returnUrl={Uri.EscapeDataString("/pricing/checkout?plan=" + (Plan ?? "monthly"))}");
-                return;
-            }
-            _userEmail = identityUser.Email;
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Failed to resolve user on checkout page");
-            _error = "Unable to load your account. Please refresh and try again.";
-        }
-        finally
-        {
-            _loading = false;
-            StateHasChanged();
-        }
+        _userEmail = profile.Value.Email;
+        _loading = false;
+        StateHasChanged();
     }
 
     private async Task ProceedToStripe()
     {
         if (string.IsNullOrWhiteSpace(_userEmail)) return;
-
         _checkoutLoading = true;
         StateHasChanged();
 
-        try
-        {
-            var prices = StripeOptions.Value.Prices;
-            var priceId = _isAnnual ? prices.ProAnnual : prices.ProMonthly;
-            var planType = _isAnnual ? "annual" : "monthly";
+        var planType = _isAnnual ? "annual" : "monthly";
+        var successUrl = $"{Nav.BaseUri}checkout/success?session_id={{CHECKOUT_SESSION_ID}}";
+        var cancelUrl = $"{Nav.BaseUri}pricing";
 
-            var result = await StripeService.CreateCheckoutSessionAsync(
-                priceId, _userEmail, "subscription", planType);
+        var result = await Api.CreateCheckoutAsync(new UtilityMenuSite.Core.Models.Api.CreateCheckoutRequest(
+            planType, _userEmail, successUrl, cancelUrl));
 
-            Nav.NavigateTo(result.CheckoutUrl, forceLoad: true);
-        }
-        catch (Exception ex)
+        if (result.IsSuccess && result.Value is not null)
         {
-            Logger.LogError(ex, "Failed to create checkout session for {Email}", _userEmail);
-            _error = "Failed to start checkout. Please try again or contact support.";
-            _checkoutLoading = false;
-            StateHasChanged();
+            Nav.NavigateTo(result.Value.CheckoutUrl, forceLoad: true);
+            return;
         }
+
+        Logger.LogWarning("Checkout creation failed: {Code} {Message}", result.ErrorCode, result.ErrorMessage);
+        _error = "Failed to start checkout. Please try again or contact support.";
+        _checkoutLoading = false;
+        StateHasChanged();
     }
 }

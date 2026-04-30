@@ -2,12 +2,7 @@
 @rendermode InteractiveServer
 @layout DashboardLayout
 @attribute [Authorize]
-@using Microsoft.AspNetCore.Identity
-@inject AuthenticationStateProvider AuthProvider
-@inject UserManager<Data.Models.ApplicationUser> UserManager
-@inject IUserService UserService
-@inject ILicenceService LicenceService
-@inject IVersionManifestService VersionService
+@inject IUtilityMenuApiClient Api
 @inject NavigationManager Nav
 @inject ILogger<Dashboard> Logger
 
@@ -19,16 +14,15 @@
 }
 else
 {
-    <!-- Welcome Header -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
-            <h2 class="fw-bold mb-0">Welcome back@(!string.IsNullOrWhiteSpace(_user?.DisplayName) ? $", {_user.DisplayName}" : "")!</h2>
-            <p class="text-muted mb-0">@_user?.Email</p>
+            <h2 class="fw-bold mb-0">Welcome back@(!string.IsNullOrWhiteSpace(_dashboard?.Profile.DisplayName) ? $", {_dashboard.Profile.DisplayName}" : "")!</h2>
+            <p class="text-muted mb-0">@_dashboard?.Profile.Email</p>
         </div>
-        @if (_version is not null)
+        @if (!string.IsNullOrWhiteSpace(_dashboard?.LatestVersion))
         {
             <a href="/download" class="btn btn-primary">
-                <i class="bi bi-download me-2"></i>Download v@_version.Version
+                <i class="bi bi-download me-2"></i>Download v@_dashboard.LatestVersion
             </a>
         }
     </div>
@@ -38,9 +32,7 @@ else
         <AlertBanner Message="@_message" Type="@_messageType" />
     }
 
-    <!-- Stat Cards -->
     <div class="row g-4 mb-4">
-        <!-- Licence -->
         <div class="col-sm-6 col-xl-3">
             <a href="/dashboard/licence" class="text-decoration-none">
                 <div class="card border-0 shadow-sm h-100 stat-card">
@@ -49,11 +41,11 @@ else
                             <span class="text-muted small fw-semibold text-uppercase">Licence</span>
                             <i class="bi bi-key fs-5 text-primary"></i>
                         </div>
-                        @if (_licence is not null)
+                        @if (_dashboard?.ActiveLicence is not null)
                         {
-                            <div class="fs-5 fw-bold text-dark">@_licence.LicenceType.ToUpperInvariant()</div>
-                            <span class="badge @(IsLicenceEffectivelyActive(_licence) ? "bg-success-subtle text-success" : "bg-danger-subtle text-danger") align-self-start">
-                                @(IsLicenceEffectivelyActive(_licence) ? "Active" : "Inactive")
+                            <div class="fs-5 fw-bold text-dark">@_dashboard.ActiveLicence.LicenceType.ToUpperInvariant()</div>
+                            <span class="badge @(_dashboard.ActiveLicence.IsActive ? "bg-success-subtle text-success" : "bg-danger-subtle text-danger") align-self-start">
+                                @(_dashboard.ActiveLicence.IsActive ? "Active" : "Inactive")
                             </span>
                         }
                         else
@@ -66,7 +58,6 @@ else
             </a>
         </div>
 
-        <!-- Subscription -->
         <div class="col-sm-6 col-xl-3">
             <a href="/dashboard/billing" class="text-decoration-none">
                 <div class="card border-0 shadow-sm h-100 stat-card">
@@ -75,10 +66,10 @@ else
                             <span class="text-muted small fw-semibold text-uppercase">Subscription</span>
                             <i class="bi bi-credit-card fs-5 text-primary"></i>
                         </div>
-                        @if (_subscription is not null)
+                        @if (_dashboard?.Subscription is not null)
                         {
-                            <div class="fs-5 fw-bold text-dark">@_subscription.PlanType.ToUpperInvariant()</div>
-                            <span class="badge @GetStatusBadgeSubtle(_subscription.Status) align-self-start">@_subscription.Status</span>
+                            <div class="fs-5 fw-bold text-dark">@_dashboard.Subscription.PlanType.ToUpperInvariant()</div>
+                            <span class="badge @GetStatusBadgeSubtle(_dashboard.Subscription.Status) align-self-start">@_dashboard.Subscription.Status</span>
                         }
                         else
                         {
@@ -90,7 +81,6 @@ else
             </a>
         </div>
 
-        <!-- Devices -->
         <div class="col-sm-6 col-xl-3">
             <a href="/dashboard/devices" class="text-decoration-none">
                 <div class="card border-0 shadow-sm h-100 stat-card">
@@ -100,7 +90,7 @@ else
                             <i class="bi bi-laptop fs-5 text-primary"></i>
                         </div>
                         <div class="fs-5 fw-bold text-dark">
-                            @_machineCount <span class="text-muted fw-normal fs-6">/ @(_licence?.MaxActivations ?? 2)</span>
+                            @(_dashboard?.ActiveLicence?.Machines.Count ?? 0) <span class="text-muted fw-normal fs-6">/ @(_dashboard?.ActiveLicence?.MaxActivations ?? 2)</span>
                         </div>
                         <span class="text-muted small">activated machines</span>
                     </div>
@@ -108,7 +98,6 @@ else
             </a>
         </div>
 
-        <!-- Modules -->
         <div class="col-sm-6 col-xl-3">
             <a href="/dashboard/licence" class="text-decoration-none">
                 <div class="card border-0 shadow-sm h-100 stat-card">
@@ -117,7 +106,7 @@ else
                             <span class="text-muted small fw-semibold text-uppercase">Modules</span>
                             <i class="bi bi-puzzle fs-5 text-primary"></i>
                         </div>
-                        <div class="fs-5 fw-bold text-dark">@_moduleCount</div>
+                        <div class="fs-5 fw-bold text-dark">@(_dashboard?.ActiveLicence?.GrantedModules.Count ?? 0)</div>
                         <span class="text-muted small">unlocked modules</span>
                     </div>
                 </div>
@@ -125,7 +114,6 @@ else
         </div>
     </div>
 
-    <!-- Quick Actions -->
     <div class="row g-4">
         <div class="col-md-6">
             <div class="card border-0 shadow-sm">
@@ -155,16 +143,16 @@ else
                     <i class="bi bi-book me-2 text-primary"></i>Get Started
                 </div>
                 <div class="card-body d-flex flex-column gap-2">
-                    @if (_version is not null)
+                    @if (!string.IsNullOrWhiteSpace(_dashboard?.LatestVersion))
                     {
                         <a href="/download" class="btn btn-outline-secondary btn-sm text-start">
-                            <i class="bi bi-download me-2"></i>Download add-in v@_version.Version
+                            <i class="bi bi-download me-2"></i>Download add-in v@_dashboard.LatestVersion
                         </a>
                     }
                     <a href="/docs" class="btn btn-outline-secondary btn-sm text-start">
                         <i class="bi bi-file-earmark-text me-2"></i>Read the documentation
                     </a>
-                    @if (_licence is null)
+                    @if (_dashboard?.ActiveLicence is null)
                     {
                         <a href="/pricing" class="btn btn-primary btn-sm text-start">
                             <i class="bi bi-arrow-up-circle me-2"></i>Upgrade to Pro
@@ -182,12 +170,7 @@ else
 </style>
 
 @code {
-    private Data.Models.User? _user;
-    private Data.Models.Licence? _licence;
-    private Data.Models.Subscription? _subscription;
-    private Core.Models.VersionManifest? _version;
-    private int _machineCount;
-    private int _moduleCount;
+    private DashboardSummaryDto? _dashboard;
     private bool _loading = true;
     private string? _message;
     private string _messageType = "info";
@@ -195,55 +178,20 @@ else
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
-        await LoadAsync();
-    }
-
-    private async Task LoadAsync()
-    {
-        try
+        var result = await Api.GetDashboardAsync();
+        if (result.IsSuccess)
         {
-            var authState = await AuthProvider.GetAuthenticationStateAsync();
-            var identityUser = await UserManager.GetUserAsync(authState.User);
-            if (identityUser is null) { Nav.NavigateTo("/account/login"); return; }
-
-            _user = await UserService.GetByIdentityIdAsync(identityUser.Id);
-            if (_user is null)
-            {
-                // User may have been created via checkout before registering.
-                // RegisterFromIdentityAsync finds by email and saves the IdentityId link.
-                _user = await UserService.RegisterFromIdentityAsync(identityUser.Email!, identityUser.Id);
-            }
-
-            _user = await UserService.GetWithLicenceAsync(_user.UserId);
-            _licence = await LicenceService.GetActiveLicenceAsync(_user!.UserId);
-            _subscription = await LicenceService.GetSubscriptionAsync(_user.UserId);
-            _version = await VersionService.GetLatestAsync();
-
-            if (_licence is not null)
-            {
-                var machines = await LicenceService.GetActiveMachinesAsync(_licence.LicenceId);
-                _machineCount = machines.Count;
-                _moduleCount = _licence.LicenceModules?.Count ?? 0;
-            }
+            _dashboard = result.Value;
         }
-        catch (Exception ex)
+        else
         {
-            Logger.LogError(ex, "Failed to load dashboard overview");
+            Logger.LogWarning("Dashboard load failed: {Code} {Message}", result.ErrorCode, result.ErrorMessage);
             _message = "Failed to load dashboard data.";
             _messageType = "danger";
         }
-        finally
-        {
-            _loading = false;
-            StateHasChanged();
-        }
+        _loading = false;
+        StateHasChanged();
     }
-
-    // A licence is effectively active only if both the IsActive flag is set AND
-    // ExpiresAt (if present) has not yet passed. This handles the window between
-    // a grace period expiring and Stripe firing customer.subscription.deleted.
-    private static bool IsLicenceEffectivelyActive(Data.Models.Licence l) =>
-        l.IsActive && (!l.ExpiresAt.HasValue || l.ExpiresAt.Value > DateTime.UtcNow);
 
     private static string GetStatusBadgeSubtle(string status) => status switch
     {
