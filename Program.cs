@@ -16,6 +16,8 @@ using UtilityMenuSite.Services.Licensing;
 using UtilityMenuSite.Services.Payment;
 using UtilityMenuSite.Services.User;
 using UtilityMenuSite.Infrastructure.Security;
+using UtilityMenuSite.Services.Api;
+using UtilityMenuSite.Services.Auth;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -99,6 +101,26 @@ builder.Services.AddAuthorization(opts =>
 builder.Services.Configure<StripeSettings>(builder.Configuration.GetSection("Stripe"));
 builder.Services.Configure<LicensingSettings>(builder.Configuration.GetSection("Licensing"));
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("Email"));
+builder.Services.Configure<UtilityMenuSite.Infrastructure.Configuration.ApiSettings>(builder.Configuration.GetSection("Api"));
+
+// ── UtilityMenuAPI client (Phase 3 BFF) ──────────────────────────────────────
+// Site is migrating to be a thin BFF for UtilityMenuAPI. Login/Register/etc
+// flow through this typed HttpClient instead of SignInManager/UserManager.
+// Existing Identity wiring above stays in place during Phase 3 migration so
+// non-yet-refactored pages keep working — it'll be removed once every page
+// has been ported (see PHASE3_CONTINUATION.md).
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IJwtTokenStorage, HttpContextJwtTokenStorage>();
+builder.Services.AddScoped<IAuthCookieIssuer, AuthCookieIssuer>();
+builder.Services.AddTransient<ApiAuthHandler>();
+builder.Services.AddHttpClient<IUtilityMenuApiClient, UtilityMenuApiClient>((sp, client) =>
+{
+    var settings = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<UtilityMenuSite.Infrastructure.Configuration.ApiSettings>>().Value;
+    var baseUrl = string.IsNullOrWhiteSpace(settings.BaseUrl) ? "https://localhost:7001" : settings.BaseUrl;
+    client.BaseAddress = new Uri(baseUrl);
+    client.Timeout = TimeSpan.FromSeconds(30);
+})
+.AddHttpMessageHandler<ApiAuthHandler>();
 
 // ── Application services ─────────────────────────────────────────────────────
 builder.Services.AddScoped<IUserService, UserService>();

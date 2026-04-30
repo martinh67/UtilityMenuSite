@@ -1,9 +1,7 @@
 @page "/account/register"
 @layout AuthLayout
-@using Microsoft.AspNetCore.Identity
-@inject UserManager<Data.Models.ApplicationUser> UserManager
-@inject SignInManager<Data.Models.ApplicationUser> SignInManager
-@inject IUserService UserService
+@inject IUtilityMenuApiClient Api
+@inject IAuthCookieIssuer AuthIssuer
 @inject ILogger<Register> Logger
 
 <PageTitle>Create Account — UtilityMenu</PageTitle>
@@ -21,8 +19,7 @@
     <AlertBanner Message="@_errorMessage" Type="danger" />
 }
 
-<!-- Register Form -->
-<EditForm 
+<EditForm
     Model="_model"
     OnValidSubmit="HandleRegister"
     method="post"
@@ -79,49 +76,34 @@
 
     private async Task HandleRegister()
     {
-        var identityUser = new Data.Models.ApplicationUser
-        {
-            UserName = _model.Email,
-            Email = _model.Email,
-            EmailConfirmed = true
-        };
+        // Display name is collected on /account/complete-profile after first
+        // sign-in. The API's RegisterRequest needs *some* display name, so we
+        // pass the email local-part as a default.
+        var defaultDisplayName = _model.Email!.Split('@')[0];
 
-        var result = await UserManager.CreateAsync(identityUser, _model.Password);
-        if (!result.Succeeded)
+        var result = await Api.RegisterAsync(new RegisterRequest(
+            Email: _model.Email!,
+            Password: _model.Password,
+            DisplayName: defaultDisplayName,
+            Organisation: null,
+            JobRole: null));
+
+        if (!result.IsSuccess || result.Value is null)
         {
-            _errorMessage = string.Join(" ", result.Errors.Select(e => e.Description));
+            _errorMessage = result.ErrorCode switch
+            {
+                "email_taken"     => "An account with that email already exists.",
+                "create_failed"   => result.ErrorMessage ?? "Registration failed. Please try again.",
+                "network_error"   => "Could not reach the server. Please try again.",
+                _                 => result.ErrorMessage ?? "Registration failed. Please try again."
+            };
+            Logger.LogWarning("Registration failed for {Email}: {Code} {Message}", _model.Email, result.ErrorCode, result.ErrorMessage);
             return;
         }
 
-        // All steps after CreateAsync are wrapped so that a failure rolls back the
-        // Identity user, preventing orphaned AspNetUsers records.
-        try
-        {
-            var roleResult = await UserManager.AddToRoleAsync(identityUser, "User");
-            if (!roleResult.Succeeded)
-                Logger.LogWarning("AddToRoleAsync failed for {Email}: {Errors}",
-                    identityUser.Email, string.Join(", ", roleResult.Errors.Select(e => e.Description)));
+        await AuthIssuer.IssueAsync(HttpContext!, result.Value, persistent: true);
+        Logger.LogInformation("New user registered: {Email}", _model.Email);
 
-            await UserService.RegisterFromIdentityAsync(_model.Email!, identityUser.Id);
-
-            // PasswordSignInAsync uses the same codepath as Login and correctly
-            // sets the auth cookie in SSR POST context.
-            await SignInManager.PasswordSignInAsync(
-                _model.Email!, _model.Password, isPersistent: true, lockoutOnFailure: false);
-
-            Logger.LogInformation("New user registered: {Email}", _model.Email);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Registration failed for {Email} after Identity user was created — rolling back", identityUser.Email);
-            await UserManager.DeleteAsync(identityUser);
-            _errorMessage = "Registration failed. Please try again.";
-            return;
-        }
-
-        // Use Response.Redirect instead of Nav.NavigateTo — same reason as Login.razor:
-        // forces a full browser GET so SSR re-emits a valid antiforgery token for
-        // the newly authenticated session (.NET 10 Enhanced Navigation regression).
         var profileReturnUrl = ReturnUrl is { Length: > 0 } r && r.StartsWith('/') && !r.StartsWith("//")
             ? r : "/dashboard";
         HttpContext!.Response.Redirect($"/account/complete-profile?returnUrl={Uri.EscapeDataString(profileReturnUrl)}");
