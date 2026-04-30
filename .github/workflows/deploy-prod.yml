@@ -1,5 +1,8 @@
 name: Deploy — Production
 
+# Site is now a thin BFF: no test project, no migrations. Build → deploy.
+# All data + auth go via UtilityMenuAPI.
+
 on:
   push:
     branches:
@@ -33,29 +36,12 @@ jobs:
       artifact-name: app-prod
       retention-days: 14
 
-  test:
-    needs: build
-    uses: ./.github/workflows/reusable-test.yml
-    with:
-      artifact-name: app-prod
-      test-results-name: test-results-prod
-      retention-days: 14
-
-  migrate:
-    needs: test
-    uses: ./.github/workflows/reusable-migrate.yml
-    with:
-      environment: Production
-      artifact-name: app-prod
-    secrets:
-      connection-string: ${{ secrets.PROD_CONNECTION_STRING }}
-
   deploy:
-    needs: migrate
+    needs: build
     uses: ./.github/workflows/reusable-deploy-azure.yml
     with:
       environment: Production
-      app-name: utilitymenu-prod
+      app-name: utilitymenu-prod-site
       artifact-name: app-prod
     secrets:
       azure-credentials: ${{ secrets.PROD_AZURE_CREDENTIALS }}

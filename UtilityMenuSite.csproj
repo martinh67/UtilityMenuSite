@@ -9,22 +9,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
-      <_Parameter1>UtilityMenuSite.Tests</_Parameter1>
-    </AssemblyAttribute>
-  </ItemGroup>
-
-  <!-- Exclude test project subfolder from this project's SDK glob -->
-  <ItemGroup>
-    <Compile Remove="UtilityMenuSite.Tests/**" />
-    <Content Remove="UtilityMenuSite.Tests/**" />
-    <EmbeddedResource Remove="UtilityMenuSite.Tests/**" />
-    <None Remove="UtilityMenuSite.Tests/**" />
-  </ItemGroup>
-
-  <ItemGroup>
     <!-- Phase 3 BFF: Site is now a thin Blazor UI that calls UtilityMenuAPI
-         for all data + auth. EF Core, Identity-EF, and Stripe.net are gone -
+         for all data + auth. EF Core, Identity-EF, and Stripe.net are gone —
          the API owns the database, JWT issuance, and Stripe SDK calls.
          Cookie auth is built into ASP.NET Core (no separate package needed). -->
     <PackageReference Include="Markdig" Version="0.37.0" />

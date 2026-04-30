@@ -1,5 +1,9 @@
 name: Deploy — Dev
 
+# Site is now a thin BFF: no test project, no migrations. Build → deploy.
+# All data + auth go via UtilityMenuAPI; the API repo runs its own tests +
+# migrations as part of its deploy chain.
+
 on:
   push:
     branches:
@@ -27,29 +31,12 @@ jobs:
       artifact-name: app-dev
       retention-days: 1
 
-  test:
-    needs: build
-    uses: ./.github/workflows/reusable-test.yml
-    with:
-      artifact-name: app-dev
-      test-results-name: test-results-dev
-      retention-days: 1
-
-  migrate:
-    needs: test
-    uses: ./.github/workflows/reusable-migrate.yml
-    with:
-      environment: Dev
-      artifact-name: app-dev
-    secrets:
-      connection-string: ${{ secrets.DEV_CONNECTION_STRING }}
-
   deploy:
-    needs: migrate
+    needs: build
     uses: ./.github/workflows/reusable-deploy-azure.yml
     with:
       environment: Dev
-      app-name: utilitymenu-dev
+      app-name: utilitymenu-dev-site
       artifact-name: app-dev
     secrets:
       azure-credentials: ${{ secrets.DEV_AZURE_CREDENTIALS }}

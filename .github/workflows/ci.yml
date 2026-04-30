@@ -11,9 +11,10 @@ on:
       - 'LICENSE'
 
 # Note: no `push:` trigger here. Push events go to deploy-dev / deploy-uat /
-# deploy-prod, each of which runs build + test inline as part of the deploy
-# pipeline. CI fires only on PR — that's the single test gate before merge.
-# Mirrors InkyAPI's posture; halves Actions minutes on feature-branch pushes.
+# deploy-prod which build and deploy. CI runs only on PR.
+#
+# Site is a thin BFF: no test project, no migrations. CI is build-only —
+# UtilityMenuAPI runs its own tests + migrations against the shared DB.
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -25,12 +26,3 @@ jobs:
     with:
       configuration: Release
       artifact-name: app-ci
-
-  test:
-    needs: build
-    uses: ./.github/workflows/reusable-test.yml
-    with:
-      configuration: Release
-      artifact-name: app-ci
-      test-results-name: test-results-ci
-      retention-days: 1

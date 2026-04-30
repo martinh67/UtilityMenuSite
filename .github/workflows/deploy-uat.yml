@@ -1,5 +1,8 @@
 name: Deploy — UAT
 
+# Site is now a thin BFF: no test project, no migrations. Build → deploy.
+# All data + auth go via UtilityMenuAPI.
+
 on:
   push:
     branches: [ develop ]
@@ -24,29 +27,12 @@ jobs:
       artifact-name: app-uat
       retention-days: 7
 
-  test:
-    needs: build
-    uses: ./.github/workflows/reusable-test.yml
-    with:
-      artifact-name: app-uat
-      test-results-name: test-results-uat
-      retention-days: 7
-
-  migrate:
-    needs: test
-    uses: ./.github/workflows/reusable-migrate.yml
-    with:
-      environment: UAT
-      artifact-name: app-uat
-    secrets:
-      connection-string: ${{ secrets.UAT_CONNECTION_STRING }}
-
   deploy:
-    needs: migrate
+    needs: build
     uses: ./.github/workflows/reusable-deploy-azure.yml
     with:
       environment: UAT
-      app-name: utilitymenu-uat
+      app-name: utilitymenu-uat-site
       artifact-name: app-uat
     secrets:
       azure-credentials: ${{ secrets.UAT_AZURE_CREDENTIALS }}
