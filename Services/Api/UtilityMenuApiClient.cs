@@ -1,9 +1,5 @@
-using System;
-using System.Collections.Generic;
 using System.Net;
-using System.Net.Http.Json;
 using System.Text.Json;
-using UtilityMenuSite.Core.Models.Api;
 
 namespace UtilityMenuSite.Services.Api;
 
