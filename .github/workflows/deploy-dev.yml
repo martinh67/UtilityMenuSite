@@ -18,6 +18,10 @@ on:
       - 'LICENSE'
   workflow_dispatch:
 
+permissions:
+  id-token: write
+  contents: read
+
 concurrency:
   group: deploy-dev-${{ github.ref }}
   cancel-in-progress: true
@@ -38,5 +42,3 @@ jobs:
       environment: Dev
       app-name: utilitymenu-dev-site
       artifact-name: app-dev
-    secrets:
-      azure-credentials: ${{ secrets.DEV_AZURE_CREDENTIALS }}

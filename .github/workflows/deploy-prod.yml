@@ -20,6 +20,10 @@ on:
         required: true
         type: string
 
+permissions:
+  id-token: write
+  contents: read
+
 concurrency:
   group: deploy-prod
   cancel-in-progress: false
@@ -43,8 +47,6 @@ jobs:
       environment: Production
       app-name: utilitymenu-prod-site
       artifact-name: app-prod
-    secrets:
-      azure-credentials: ${{ secrets.PROD_AZURE_CREDENTIALS }}
 
   notify:
     needs: deploy

@@ -14,6 +14,10 @@ on:
       - 'LICENSE'
   workflow_dispatch:
 
+permissions:
+  id-token: write
+  contents: read
+
 concurrency:
   group: deploy-uat
   cancel-in-progress: false
@@ -34,5 +38,3 @@ jobs:
       environment: UAT
       app-name: utilitymenu-uat-site
       artifact-name: app-uat
-    secrets:
-      azure-credentials: ${{ secrets.UAT_AZURE_CREDENTIALS }}
