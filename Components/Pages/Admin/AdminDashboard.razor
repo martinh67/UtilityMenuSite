@@ -2,9 +2,7 @@
 @rendermode InteractiveServer
 @layout AdminLayout
 @attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
-@inject IUserService UserService
-@inject IContactService ContactService
-@inject IStripeWebhookService WebhookService
+@inject IUtilityMenuApiClient Api
 @inject ILogger<AdminDashboard> Logger
 
 <PageTitle>Admin Dashboard — UtilityMenu</PageTitle>
@@ -22,7 +20,6 @@ else
         <AlertBanner Message="@_message" Type="@_messageType" />
     }
 
-    <!-- Stats Panel -->
     <div class="row g-3 mb-5">
         <div class="col-md-3">
             <div class="card border-0 shadow-sm text-center p-3">
@@ -53,7 +50,6 @@ else
     </div>
 
     <div class="row g-4">
-        <!-- User Search -->
         <div class="col-md-6">
             <div class="card border-0 shadow-sm">
                 <div class="card-header bg-transparent border-0 fw-semibold">
@@ -93,14 +89,13 @@ else
             </div>
         </div>
 
-        <!-- Contact Queue -->
         <div class="col-md-6">
             <div class="card border-0 shadow-sm">
                 <div class="card-header bg-transparent border-0 fw-semibold">
                     <i class="bi bi-envelope me-2"></i>Contact Queue
                 </div>
                 <div class="card-body">
-                    @if (_contacts.Any())
+                    @if (_contacts.Count > 0)
                     {
                         @foreach (var contact in _contacts.Take(5))
                         {
@@ -129,8 +124,7 @@ else
             </div>
         </div>
 
-        <!-- Failed Webhooks -->
-        @if (_failedWebhooks.Any())
+        @if (_failedWebhooks.Count > 0)
         {
             <div class="col-12">
                 <div class="card border-0 shadow-sm border-warning">
@@ -163,10 +157,10 @@ else
 }
 
 @code {
-    private Core.Models.AdminStatsDto? _stats;
-    private List<Data.Models.User> _users = new();
-    private List<Data.Models.ContactSubmission> _contacts = new();
-    private List<Data.Models.StripeWebhookEvent> _failedWebhooks = new();
+    private UtilityMenuSite.Core.Models.Api.AdminStatsDto? _stats;
+    private List<AdminUserSummaryDto> _users = new();
+    private List<ContactSubmissionDto> _contacts = new();
+    private List<FailedWebhookEventDto> _failedWebhooks = new();
     private string _userQuery = string.Empty;
     private bool _loading = true;
     private bool _searchLoading;
@@ -176,27 +170,23 @@ else
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
-        await LoadDataAsync();
-    }
+        var statsTask = Api.GetAdminStatsAsync();
+        var contactsTask = Api.GetPendingContactsAsync();
+        var webhooksTask = Api.GetFailedWebhookEventsAsync();
+        await Task.WhenAll(statsTask, contactsTask, webhooksTask);
 
-    private async Task LoadDataAsync()
-    {
-        try
+        if (statsTask.Result.IsSuccess) _stats = statsTask.Result.Value;
+        if (contactsTask.Result.IsSuccess) _contacts = contactsTask.Result.Value?.ToList() ?? new();
+        if (webhooksTask.Result.IsSuccess) _failedWebhooks = webhooksTask.Result.Value?.ToList() ?? new();
+
+        if (!statsTask.Result.IsSuccess || !contactsTask.Result.IsSuccess || !webhooksTask.Result.IsSuccess)
         {
-            _stats            = await UserService.GetAdminStatsAsync();
-            _contacts         = await ContactService.GetPendingSubmissionsAsync();
-            _failedWebhooks   = await WebhookService.GetFailedEventsAsync();
+            Logger.LogWarning("Some admin data failed to load");
+            _message = "Some dashboard data failed to load.";
         }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Failed to load admin dashboard data");
-            _message = "Failed to load dashboard data. Please refresh.";
-        }
-        finally
-        {
-            _loading = false;
-            StateHasChanged();
-        }
+
+        _loading = false;
+        StateHasChanged();
     }
 
     private async Task SearchOnEnter(KeyboardEventArgs e)
@@ -209,49 +199,34 @@ else
         if (string.IsNullOrWhiteSpace(_userQuery)) return;
         _searchLoading = true;
         StateHasChanged();
-        try
-        {
-            _users = await UserService.SearchUsersAsync(_userQuery);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "User search failed for query {Query}", _userQuery);
-            _message = "Search failed. Please try again.";
-        }
-        finally
-        {
-            _searchLoading = false;
-            StateHasChanged();
-        }
+        var result = await Api.SearchUsersAsync(_userQuery);
+        if (result.IsSuccess) _users = result.Value?.ToList() ?? new();
+        else _message = "Search failed. Please try again.";
+        _searchLoading = false;
+        StateHasChanged();
     }
 
     private async Task ResolveContact(Guid id)
     {
-        try
+        var result = await Api.ResolveContactAsync(id);
+        if (result.IsSuccess)
         {
-            await ContactService.ResolveAsync(id, null);
-            _contacts = await ContactService.GetPendingSubmissionsAsync();
+            var refreshed = await Api.GetPendingContactsAsync();
+            if (refreshed.IsSuccess) _contacts = refreshed.Value?.ToList() ?? new();
         }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Failed to resolve contact {Id}", id);
-            _message = "Failed to resolve contact. Please try again.";
-        }
+        else _message = "Failed to resolve contact.";
         StateHasChanged();
     }
 
     private async Task RetryWebhook(Guid id)
     {
-        try
+        var result = await Api.RetryWebhookEventAsync(id);
+        if (result.IsSuccess)
         {
-            await WebhookService.RetryEventAsync(id);
-            _failedWebhooks = await WebhookService.GetFailedEventsAsync();
+            var refreshed = await Api.GetFailedWebhookEventsAsync();
+            if (refreshed.IsSuccess) _failedWebhooks = refreshed.Value?.ToList() ?? new();
         }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Failed to retry webhook {Id}", id);
-            _message = "Failed to retry webhook. Please try again.";
-        }
+        else _message = "Failed to retry webhook.";
         StateHasChanged();
     }
 }

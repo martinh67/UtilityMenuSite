@@ -1,10 +1,20 @@
 name: CI
 
 on:
-  push:
-    branches: [ main, develop, 'feature/**', 'fix/**' ]
   pull_request:
     branches: [ main, develop ]
+    paths-ignore:
+      - '**.md'
+      - 'wwwroot/docs/**'
+      - 'wwwroot/css/**'
+      - 'wwwroot/js/**'
+      - 'LICENSE'
+
+# Note: no `push:` trigger here. Push events go to deploy-dev / deploy-uat /
+# deploy-prod which build and deploy. CI runs only on PR.
+#
+# Site is a thin BFF: no test project, no migrations. CI is build-only —
+# UtilityMenuAPI runs its own tests + migrations against the shared DB.
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -15,9 +25,4 @@ jobs:
     uses: ./.github/workflows/reusable-build.yml
     with:
       configuration: Release
-
-  test:
-    needs: build
-    uses: ./.github/workflows/reusable-test.yml
-    with:
-      configuration: Release
+      artifact-name: app-ci

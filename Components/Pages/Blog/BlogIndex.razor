@@ -1,5 +1,5 @@
 @page "/blog"
-@inject IBlogService BlogService
+@inject IUtilityMenuApiClient Api
 
 <PageTitle>Blog — UtilityMenu</PageTitle>
 <HeadContent>
@@ -14,8 +14,7 @@
         </div>
     </div>
 
-    <!-- Category Filter -->
-    @if (_categories.Any())
+    @if (_categories.Count > 0)
     {
         <div class="d-flex flex-wrap gap-2 mb-4">
             <button class="btn @(string.IsNullOrEmpty(_categorySlug) ? "btn-primary" : "btn-outline-secondary") btn-sm"
@@ -34,10 +33,10 @@
     {
         <LoadingSpinner />
     }
-    else if (_result.Items.Any())
+    else if (_posts.Count > 0)
     {
         <div class="row g-4 mb-4">
-            @foreach (var post in _result.Items)
+            @foreach (var post in _posts)
             {
                 <div class="col-md-4">
                     <div class="card h-100 border-0 shadow-sm">
@@ -46,7 +45,7 @@
                             <img src="@post.CoverImageUrl" class="card-img-top" alt="@post.Title" style="height:180px;object-fit:cover;" />
                         }
                         <div class="card-body">
-                            <span class="badge bg-primary-subtle text-primary mb-2">@post.Category.Name</span>
+                            <span class="badge bg-primary-subtle text-primary mb-2">@(post.CategoryName ?? "Blog")</span>
                             <h5 class="fw-semibold"><a href="/blog/@post.Slug" class="text-decoration-none text-dark">@post.Title</a></h5>
                             <p class="text-muted small">@post.Summary</p>
                         </div>
@@ -58,8 +57,6 @@
                 </div>
             }
         </div>
-
-        <Pagination CurrentPage="_currentPage" TotalPages="_result.TotalPages" OnPageChanged="ChangePage" />
     }
     else
     {
@@ -68,36 +65,35 @@
 </div>
 
 @code {
-    private Core.Models.PagedResult<Data.Models.BlogPost> _result = new();
-    private List<Data.Models.BlogCategory> _categories = new();
+    private List<BlogPostDto> _posts = new();
+    private List<BlogCategoryDto> _categories = new();
     private string? _categorySlug;
-    private int _currentPage = 1;
-    private const int PageSize = 12;
     private bool _loading = true;
 
     protected override async Task OnInitializedAsync()
     {
-        _categories = await BlogService.GetCategoriesAsync();
+        var categoriesResult = await Api.GetBlogCategoriesAsync();
+        if (categoriesResult.IsSuccess) _categories = categoriesResult.Value?.ToList() ?? new();
         await LoadPostsAsync();
     }
 
     private async Task FilterCategory(string? slug)
     {
         _categorySlug = slug;
-        _currentPage = 1;
-        await LoadPostsAsync();
-    }
-
-    private async Task ChangePage(int page)
-    {
-        _currentPage = page;
         await LoadPostsAsync();
     }
 
     private async Task LoadPostsAsync()
     {
         _loading = true;
-        _result = await BlogService.GetPublishedPostsAsync(_categorySlug, _currentPage, PageSize);
+        var result = await Api.GetPublishedPostsAsync(0, 12);
+        if (result.IsSuccess && result.Value is not null)
+        {
+            // Client-side category filter for now; API can accept ?category=slug in a follow-up.
+            _posts = string.IsNullOrEmpty(_categorySlug)
+                ? result.Value.Posts.ToList()
+                : result.Value.Posts.Where(p => _categories.FirstOrDefault(c => c.CategoryId == p.CategoryId)?.Slug == _categorySlug).ToList();
+        }
         _loading = false;
     }
 }

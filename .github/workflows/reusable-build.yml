@@ -8,16 +8,21 @@ on:
         required: false
         default: 'Release'
         type: string
-      upload-artifact:
-        description: 'Upload build artifact'
+      publish:
+        description: 'Also run dotnet publish for deployment'
         required: false
         default: false
         type: boolean
       artifact-name:
-        description: 'Artifact name'
+        description: 'Artifact name prefix'
         required: false
         default: 'app'
         type: string
+      retention-days:
+        description: 'Days to retain the publish artifact (dev=1, uat=7, prod=14)'
+        required: false
+        default: 7
+        type: number
 
 jobs:
   build:
@@ -30,18 +35,28 @@ jobs:
       - name: Build
         run: dotnet build --no-restore -c ${{ inputs.configuration }}
 
+      # Always upload build output so test/migrate jobs can reuse it
+      - name: Upload build output
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact-name }}-build
+          path: |
+            **/bin/${{ inputs.configuration }}
+            **/obj/${{ inputs.configuration }}
+          retention-days: 1
+
       - name: Publish
-        if: ${{ inputs.upload-artifact }}
+        if: ${{ inputs.publish }}
         run: |
           dotnet publish UtilityMenuSite.csproj \
             --no-build \
             -c ${{ inputs.configuration }} \
             -o ./publish
 
-      - name: Upload artifact
-        if: ${{ inputs.upload-artifact }}
+      - name: Upload publish artifact
+        if: ${{ inputs.publish }}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.artifact-name }}
           path: ./publish
-          retention-days: 7
+          retention-days: ${{ inputs.retention-days }}

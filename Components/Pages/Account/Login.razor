@@ -1,7 +1,7 @@
 @page "/account/login"
 @layout AuthLayout
-@using Microsoft.AspNetCore.Identity
-@inject SignInManager<Data.Models.ApplicationUser> SignInManager
+@inject IUtilityMenuApiClient Api
+@inject IAuthCookieIssuer AuthIssuer
 @inject ILogger<Login> Logger
 
 <PageTitle>Sign In — UtilityMenu</PageTitle>
@@ -60,31 +60,32 @@
 
     private async Task HandleLogin()
     {
-        var result = await SignInManager.PasswordSignInAsync(
-            _model.Email!, _model.Password, _model.RememberMe, lockoutOnFailure: true);
+        var result = await Api.LoginAsync(new LoginRequest(_model.Email!, _model.Password));
 
-        if (result.Succeeded)
+        if (result.IsSuccess && result.Value is not null)
         {
-            Logger.LogInformation("User {Email} signed in successfully", _model.Email);
-            // Use Response.Redirect instead of Nav.NavigateTo so Blazor Enhanced Navigation
-            // cannot intercept the 302 — the browser performs a full GET, SSR re-renders,
-            // and a fresh antiforgery token is issued for the authenticated session.
+            await AuthIssuer.IssueAsync(HttpContext!, result.Value, persistent: _model.RememberMe);
+            Logger.LogInformation("User {Email} signed in successfully via API", _model.Email);
+
+            // Use Response.Redirect instead of NavigateTo so Blazor Enhanced Navigation
+            // cannot intercept the 302 — the browser performs a full GET, the auth
+            // cookie is sent, SSR re-renders with claims populated, and a fresh
+            // antiforgery token is issued for the authenticated session.
             var destination = ReturnUrl is { Length: > 0 } r && r.StartsWith('/') && !r.StartsWith("//")
                 ? r : "/dashboard";
             HttpContext!.Response.Redirect(destination);
             return;
         }
 
-        if (result.IsLockedOut)
+        _errorMessage = result.ErrorCode switch
         {
-            Logger.LogWarning("Account lockout for {Email}", _model.Email);
-            _errorMessage = "Your account has been locked due to too many failed attempts. Try again in 15 minutes.";
-        }
-        else
-        {
-            Logger.LogWarning("Failed sign-in attempt for {Email}", _model.Email);
-            _errorMessage = "Invalid email or password.";
-        }
+            "invalid_credentials" => "Invalid email or password.",
+            "locked_out"          => "Your account has been locked due to too many failed attempts. Try again in 15 minutes.",
+            "email_not_confirmed" => "Please confirm your email address before signing in.",
+            "network_error"       => "Could not reach the server. Please try again.",
+            _                     => result.ErrorMessage ?? "Sign-in failed. Please try again."
+        };
+        Logger.LogWarning("Login failed for {Email}: {Code} {Message}", _model.Email, result.ErrorCode, result.ErrorMessage);
     }
 
     private class LoginModel

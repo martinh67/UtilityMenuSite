@@ -1,9 +1,22 @@
 name: Deploy — UAT
 
+# Site is now a thin BFF: no test project, no migrations. Build → deploy.
+# All data + auth go via UtilityMenuAPI.
+
 on:
   push:
     branches: [ develop ]
+    paths-ignore:
+      - '**.md'
+      - 'wwwroot/docs/**'
+      - 'wwwroot/css/**'
+      - 'wwwroot/js/**'
+      - 'LICENSE'
   workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
 
 concurrency:
   group: deploy-uat
@@ -14,27 +27,14 @@ jobs:
     uses: ./.github/workflows/reusable-build.yml
     with:
       configuration: Release
-      upload-artifact: true
+      publish: true
       artifact-name: app-uat
-
-  test:
-    needs: build
-    uses: ./.github/workflows/reusable-test.yml
-
-  migrate:
-    needs: test
-    uses: ./.github/workflows/reusable-migrate.yml
-    with:
-      environment: UAT
-    secrets:
-      connection-string: ${{ secrets.UAT_CONNECTION_STRING }}
+      retention-days: 7
 
   deploy:
-    needs: migrate
+    needs: build
     uses: ./.github/workflows/reusable-deploy-azure.yml
     with:
       environment: UAT
-      app-name: utilitymenu-uat
+      app-name: utilitymenu-uat-site
       artifact-name: app-uat
-    secrets:
-      azure-credentials: ${{ secrets.UAT_AZURE_CREDENTIALS }}

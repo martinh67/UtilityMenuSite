@@ -98,8 +98,32 @@ window.setDocumentTitle = function (title) {
 
 // ── File Download Trigger ─────────────────────────────────────
 // Used by Download.razor to initiate a tracked download via the API endpoint.
-// Setting window.location.href to a URL that returns a file response causes
-// the browser to start the download without navigating away from the page.
-window.triggerFileDownload = function (url) {
-    window.location.href = url;
+// Uses fetch() + blob URL so the current page is never navigated away — even
+// on error — which avoids the back-button retry loop.
+window.triggerFileDownload = async function (url) {
+    try {
+        const response = await fetch(url, { credentials: 'include' });
+        if (!response.ok) return false;
+
+        const blob = await response.blob();
+        const blobUrl = URL.createObjectURL(blob);
+
+        const a = document.createElement('a');
+        a.href = blobUrl;
+
+        // Extract filename from Content-Disposition if present
+        const disposition = response.headers.get('Content-Disposition') || '';
+        const match = disposition.match(/filename="?([^";\n]+)"?/);
+        a.download = match ? match[1].trim() : 'UtilityMenu-Setup.exe';
+
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+
+        // Revoke the blob URL after the browser has had time to start the download
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 30000);
+        return true;
+    } catch {
+        return false;
+    }
 };
