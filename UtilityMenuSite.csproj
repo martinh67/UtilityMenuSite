@@ -17,4 +17,16 @@
     <PackageReference Include="Microsoft.ApplicationInsights.AspNetCore" Version="2.22.0" />
   </ItemGroup>
 
+  <!-- The Web SDK globs every .cs/.razor under the project root, which would
+       pull UtilityMenuSite.Tests/** into the main build. Exclude explicitly. -->
+  <ItemGroup>
+    <Compile Remove="UtilityMenuSite.Tests/**" />
+    <Content Remove="UtilityMenuSite.Tests/**" />
+    <None Remove="UtilityMenuSite.Tests/**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="UtilityMenuSite.Tests" />
+  </ItemGroup>
+
 </Project>
