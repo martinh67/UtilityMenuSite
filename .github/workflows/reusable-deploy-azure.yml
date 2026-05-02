@@ -1,5 +1,12 @@
 name: Deploy to Azure App Service (reusable)
 
+# OIDC federated auth — no long-lived secrets. The caller workflow needs
+# `permissions: id-token: write` so this reusable can request the token.
+# `vars.AZURE_CLIENT_ID` etc. are configured per GitHub environment and
+# point at the env-specific app registration that has a federated credential
+# matching `repo:owner/repo:environment:<env>`. See UtilityMenuInfra readme
+# for the deployer-SP setup.
+
 on:
   workflow_call:
     inputs:
@@ -17,9 +24,10 @@ on:
         required: false
         default: 'production'
         type: string
-    secrets:
-      azure-credentials:
-        required: true
+
+permissions:
+  id-token: write
+  contents: read
 
 jobs:
   deploy:
@@ -32,10 +40,12 @@ jobs:
           name: ${{ inputs.artifact-name }}
           path: ./publish
 
-      - name: Azure login
+      - name: Azure login (OIDC)
         uses: azure/login@v2
         with:
-          creds: ${{ secrets.azure-credentials }}
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3

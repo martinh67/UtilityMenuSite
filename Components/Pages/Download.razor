@@ -1,11 +1,7 @@
 @page "/download"
 @rendermode InteractiveServer
-@using Microsoft.AspNetCore.Components.Authorization
-@using Microsoft.AspNetCore.Identity
 @inject AuthenticationStateProvider AuthProvider
-@inject IVersionManifestService VersionService
-@inject IUserService UserService
-@inject UserManager<Data.Models.ApplicationUser> UserManager
+@inject IUtilityMenuApiClient Api
 @inject IJSRuntime JS
 @inject NavigationManager Nav
 
@@ -17,10 +13,8 @@
 <div class="container py-6">
     <div class="row justify-content-center">
         <div class="col-md-7 text-center">
-
             <AuthorizeView>
                 <Authorized>
-                    <!-- Authenticated: download auto-triggers on render -->
                     <div class="mb-4">
                         <div class="bg-primary bg-opacity-10 rounded-circle d-inline-flex p-4 mb-3">
                             <i class="bi bi-download text-primary display-4"></i>
@@ -29,7 +23,14 @@
                         <p class="lead text-muted">
                             UtilityMenu @(_version is not null ? $"v{_version.Version}" : "") for Windows is downloading now.
                         </p>
-                        @if (!_downloadStarted)
+                        @if (_downloadError)
+                        {
+                            <div class="alert alert-danger d-inline-flex align-items-center gap-2 mt-2" role="alert">
+                                <i class="bi bi-exclamation-triangle-fill"></i>
+                                <span>The installer could not be retrieved. Please try again or <a href="/contact" class="alert-link">contact support</a>.</span>
+                            </div>
+                        }
+                        else if (!_downloadStarted)
                         {
                             <div class="spinner-border text-primary" role="status">
                                 <span class="visually-hidden">Starting download...</span>
@@ -85,12 +86,8 @@
                                     <p class="mb-2 small text-muted">
                                         Help us tailor module recommendations and release notes to your role.
                                     </p>
-                                    <a href="/account/complete-profile?returnUrl=/dashboard" class="btn btn-sm btn-outline-info me-2">
-                                        Complete Profile
-                                    </a>
-                                    <button class="btn btn-sm btn-link text-muted p-0" @onclick="() => _showProfilePrompt = false">
-                                        Skip for now
-                                    </button>
+                                    <a href="/account/complete-profile?returnUrl=/dashboard" class="btn btn-sm btn-outline-info me-2">Complete Profile</a>
+                                    <button class="btn btn-sm btn-link text-muted p-0" @onclick="() => _showProfilePrompt = false">Skip for now</button>
                                 </div>
                             </div>
                         </div>
@@ -98,7 +95,6 @@
                 </Authorized>
 
                 <NotAuthorized>
-                    <!-- Unauthenticated: explain account requirement and offer sign-in/register -->
                     <div class="mb-4">
                         <div class="bg-primary bg-opacity-10 rounded-circle d-inline-flex p-4 mb-3">
                             <i class="bi bi-download text-primary display-4"></i>
@@ -126,26 +122,25 @@
                         <a href="/account/register?returnUrl=/download" class="btn btn-primary btn-lg px-4">
                             <i class="bi bi-person-plus me-2"></i>Create Free Account
                         </a>
-                        <a href="/account/login?returnUrl=/download" class="btn btn-outline-primary btn-lg px-4">
-                            Sign In
-                        </a>
+                        <a href="/account/login?returnUrl=/download" class="btn btn-outline-primary btn-lg px-4">Sign In</a>
                     </div>
                     <p class="text-muted small">Requires Microsoft Excel 2016 or later. Windows only.</p>
                 </NotAuthorized>
             </AuthorizeView>
-
         </div>
     </div>
 </div>
 
 @code {
     private bool _downloadStarted;
+    private bool _downloadError;
     private bool _showProfilePrompt;
-    private Core.Models.VersionManifest? _version;
+    private VersionManifestDto? _version;
 
     protected override async Task OnInitializedAsync()
     {
-        _version = await VersionService.GetLatestAsync();
+        var versionResult = await Api.GetVersionManifestAsync();
+        if (versionResult.IsSuccess) _version = versionResult.Value;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -157,22 +152,28 @@
 
         await TriggerDownload();
 
-        var identityUser = await UserManager.GetUserAsync(authState.User);
-        if (identityUser is not null)
+        var profileResult = await Api.GetProfileAsync();
+        if (profileResult.IsSuccess && profileResult.Value is not null && !profileResult.Value.ProfileCompletedAt.HasValue)
         {
-            var user = await UserService.GetByIdentityIdAsync(identityUser.Id);
-            if (user is not null && !user.ProfileCompletedAt.HasValue)
-            {
-                _showProfilePrompt = true;
-                StateHasChanged();
-            }
+            _showProfilePrompt = true;
+            StateHasChanged();
         }
     }
 
     private async Task TriggerDownload()
     {
         _downloadStarted = true;
+        _downloadError = false;
         StateHasChanged();
-        await JS.InvokeVoidAsync("triggerFileDownload", "/api/download/installer");
+        // The installer download proxy stays on the Site (UI-adjacent streaming).
+        // This endpoint will be re-implemented as a Site-side controller that
+        // streams from GitHub Releases and posts a UsageEvent to the API.
+        var success = await JS.InvokeAsync<bool>("triggerFileDownload", "/api/download/installer");
+        if (!success)
+        {
+            _downloadStarted = false;
+            _downloadError = true;
+            StateHasChanged();
+        }
     }
 }

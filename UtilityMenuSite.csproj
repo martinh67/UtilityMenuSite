@@ -5,30 +5,15 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>UtilityMenuSite</RootNamespace>
+    <UserSecretsId>utilitymenusite-dev-secrets</UserSecretsId>
   </PropertyGroup>
 
-  <!-- Exclude test project subfolder from this project's SDK glob -->
   <ItemGroup>
-    <Compile Remove="UtilityMenuSite.Tests/**" />
-    <Content Remove="UtilityMenuSite.Tests/**" />
-    <EmbeddedResource Remove="UtilityMenuSite.Tests/**" />
-    <None Remove="UtilityMenuSite.Tests/**" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="8.0.11" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.11" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="8.0.11">
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.11">
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
-<PackageReference Include="Stripe.net" Version="47.0.0" />
+    <!-- Phase 3 BFF: Site is now a thin Blazor UI that calls UtilityMenuAPI
+         for all data + auth. EF Core, Identity-EF, and Stripe.net are gone —
+         the API owns the database, JWT issuance, and Stripe SDK calls.
+         Cookie auth is built into ASP.NET Core (no separate package needed). -->
     <PackageReference Include="Markdig" Version="0.37.0" />
-    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" Version="8.0.11" />
     <PackageReference Include="Microsoft.ApplicationInsights.AspNetCore" Version="2.22.0" />
   </ItemGroup>
 

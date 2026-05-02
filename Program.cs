@@ -1,28 +1,14 @@
-using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
 using UtilityMenuSite.Components;
-using UtilityMenuSite.Core.Interfaces;
-using UtilityMenuSite.Data.Context;
-using UtilityMenuSite.Data.Models;
-using UtilityMenuSite.Data.Repositories;
 using UtilityMenuSite.Infrastructure.Configuration;
-using UtilityMenuSite.Services;
-using UtilityMenuSite.Services.Blog;
-using UtilityMenuSite.Services.Contact;
-using UtilityMenuSite.Services.Licensing;
-using UtilityMenuSite.Services.Payment;
-using UtilityMenuSite.Services.User;
+using UtilityMenuSite.Services.Api;
+using UtilityMenuSite.Services.Auth;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // ── Application Insights ─────────────────────────────────────────────────────
-// Requires package: Microsoft.ApplicationInsights.AspNetCore
-// Connection string is read from ApplicationInsights:ConnectionString in config
-// (set as an Azure App Service environment variable in production/UAT).
-// Comment this block out if Application Insights is not yet provisioned.
 var aiConnectionString = builder.Configuration["ApplicationInsights:ConnectionString"];
 if (!string.IsNullOrWhiteSpace(aiConnectionString))
 {
@@ -30,20 +16,18 @@ if (!string.IsNullOrWhiteSpace(aiConnectionString))
         opts.ConnectionString = aiConnectionString);
 }
 
-
 // ── Blazor ──────────────────────────────────────────────────────────────────
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 builder.Services.AddCascadingAuthenticationState();
 
-// ── Data Protection ───────────────────────────────────────────────────────────
-// Keys must survive app restarts (deployments restart the app, invalidating any
-// in-memory keys and making antiforgery tokens generated before the restart
-// unverifiable after it). Azure App Service exposes %HOME% which is backed by
-// Azure Files and persists across restarts and deployments.
-// SetApplicationName pins the key-purpose string so it doesn't change when the
-// content root path changes between deployments.
+// ── Data Protection ──────────────────────────────────────────────────────────
+// Keys must survive app restarts so the auth cookie (which carries the JWT
+// access + refresh tokens) remains decryptable after a redeploy. UAT/Prod
+// persist to Azure Files via the App Service %HOME% path; Dev falls back to
+// the content-root-relative path. Once Phase 2's blob storage backing is in
+// place, this can switch to PersistKeysToAzureBlobStorage.
 var dpKeysPath = Path.Combine(
     Environment.GetEnvironmentVariable("HOME") ?? builder.Environment.ContentRootPath,
     "ASP.NET", "DataProtection-Keys");
@@ -51,161 +35,61 @@ builder.Services.AddDataProtection()
     .PersistKeysToFileSystem(new System.IO.DirectoryInfo(dpKeysPath))
     .SetApplicationName("UtilityMenuSite");
 
-
-// ── API Controllers ─────────────────────────────────────────────────────────
-builder.Services.AddControllers();
-builder.Services.AddEndpointsApiExplorer();
-
-// ── EF Core ─────────────────────────────────────────────────────────────────
-builder.Services.AddDbContext<AppDbContext>(opts =>
-    opts.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
-
-// ── ASP.NET Core Identity ────────────────────────────────────────────────────
-builder.Services.AddIdentity<ApplicationUser, IdentityRole>(opts =>
+// ── Cookie auth (replaces Identity-coupled cookie scheme) ────────────────────
+// The Site is now a pure BFF: the auth cookie holds the user's claims AND the
+// JWT access + refresh tokens (as claims) for the API. There is no local user
+// store — all credentials are validated server-side via /api/v1/account/login.
+builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(opts =>
     {
-        opts.Password.RequireDigit = true;
-        opts.Password.RequiredLength = 8;
-        opts.Password.RequireUppercase = true;
-        opts.Password.RequireNonAlphanumeric = false;
-        opts.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
-        opts.Lockout.MaxFailedAccessAttempts = 5;
-        opts.User.RequireUniqueEmail = true;
-    })
-    .AddEntityFrameworkStores<AppDbContext>()
-    .AddDefaultTokenProviders();
+        opts.LoginPath = "/account/login";
+        opts.LogoutPath = "/account/logout";
+        opts.AccessDeniedPath = "/account/access-denied";
+        opts.ExpireTimeSpan = TimeSpan.FromDays(7); // matches API Jwt:RefreshChainMaxDays
+        opts.SlidingExpiration = true;
+        opts.Cookie.Name = "UtilityMenu.Auth";
+        opts.Cookie.HttpOnly = true;
+        opts.Cookie.SameSite = SameSiteMode.Lax;
+        opts.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+    });
 
-builder.Services.ConfigureApplicationCookie(opts =>
-{
-    opts.LoginPath = "/account/login";
-    opts.LogoutPath = "/account/logout";
-    opts.AccessDeniedPath = "/account/access-denied";
-    opts.ExpireTimeSpan = TimeSpan.FromDays(30);
-    opts.SlidingExpiration = true;
-    // Consistent with the antiforgery cookie — Secure only when the request is https,
-    // which it will be in Azure (scheme set by UseForwardedHeaders).
-    opts.Cookie.SecurePolicy = Microsoft.AspNetCore.Http.CookieSecurePolicy.SameAsRequest;
-});
-
-// ── Authorization ────────────────────────────────────────────────────────────
 builder.Services.AddAuthorization(opts =>
 {
     opts.AddPolicy("RequireAuthenticated", p => p.RequireAuthenticatedUser());
-    opts.AddPolicy("RequireProLicence", p => p.RequireClaim("licence_type", "pro", "custom"));
+    opts.AddPolicy("RequireProLicence", p => p.RequireClaim("licence_type", "individual", "team", "lifetime", "custom"));
     opts.AddPolicy("RequireAdmin", p => p.RequireRole("Admin"));
 });
 
-// ── Strongly-typed settings ──────────────────────────────────────────────────
-builder.Services.Configure<StripeSettings>(builder.Configuration.GetSection("Stripe"));
-builder.Services.Configure<LicensingSettings>(builder.Configuration.GetSection("Licensing"));
-builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("Email"));
-
-// ── Application services ─────────────────────────────────────────────────────
-builder.Services.AddScoped<IUserService, UserService>();
-builder.Services.AddScoped<ILicenceService, LicenceService>();
-builder.Services.AddScoped<IStripeService, StripeService>();
-builder.Services.AddScoped<IStripeWebhookService, StripeWebhookService>();
-builder.Services.AddScoped<IBlogService, BlogService>();
-builder.Services.AddScoped<IContactService, ContactService>();
-builder.Services.AddScoped<IVersionManifestService, VersionManifestService>();
-builder.Services.AddScoped<IAuditLogService, AuditLogService>();
-builder.Services.AddScoped<IEmailService, EmailService>();
-
-// ── Repositories ─────────────────────────────────────────────────────────────
-builder.Services.AddScoped<IUserRepository, UserRepository>();
-builder.Services.AddScoped<ILicenceRepository, LicenceRepository>();
-builder.Services.AddScoped<IBlogRepository, BlogRepository>();
-builder.Services.AddScoped<IContactRepository, ContactRepository>();
-
-// ── HTTP clients ─────────────────────────────────────────────────────────────
-builder.Services.AddHttpClient("sendgrid");
-
-// ── Rate limiting ─────────────────────────────────────────────────────────────
-builder.Services.AddMemoryCache();
-builder.Services.AddRateLimiter(opts =>
+// ── UtilityMenuAPI client ────────────────────────────────────────────────────
+builder.Services.Configure<ApiSettings>(builder.Configuration.GetSection("Api"));
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IJwtTokenStorage, HttpContextJwtTokenStorage>();
+builder.Services.AddScoped<IAuthCookieIssuer, AuthCookieIssuer>();
+builder.Services.AddTransient<ApiAuthHandler>();
+builder.Services.AddHttpClient<IUtilityMenuApiClient, UtilityMenuApiClient>((sp, client) =>
 {
-    opts.AddPolicy<string>("licence-validate", context =>
-        RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-            factory: _ => new FixedWindowRateLimiterOptions
-            {
-                Window = TimeSpan.FromMinutes(1),
-                PermitLimit = 60
-            }));
-    opts.AddPolicy<string>("contact-submit", context =>
-        RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-            factory: _ => new FixedWindowRateLimiterOptions
-            {
-                Window = TimeSpan.FromHours(1),
-                PermitLimit = 3
-            }));
-});
+    var settings = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<ApiSettings>>().Value;
+    var baseUrl = string.IsNullOrWhiteSpace(settings.BaseUrl) ? "https://localhost:7001" : settings.BaseUrl;
+    client.BaseAddress = new Uri(baseUrl);
+    client.Timeout = TimeSpan.FromSeconds(30);
+})
+.AddHttpMessageHandler<ApiAuthHandler>();
 
 // ── Health checks ─────────────────────────────────────────────────────────────
-builder.Services.AddHealthChecks()
-    .AddDbContextCheck<AppDbContext>("database");
-
-// ── Infrastructure ────────────────────────────────────────────────────────────
-builder.Services.AddHttpContextAccessor();
+// No DbContextCheck — the API owns the database. A simple /health endpoint
+// returns 200 if the Site process is up; deeper checks can probe the API.
+builder.Services.AddHealthChecks();
 
 var app = builder.Build();
 
 // ── Startup diagnostics ───────────────────────────────────────────────────────
 var startupLogger = app.Services.GetRequiredService<ILogger<Program>>();
-
 startupLogger.LogInformation("UtilityMenuSite starting — Environment: {Environment}", app.Environment.EnvironmentName);
 
-if (string.IsNullOrWhiteSpace(builder.Configuration["Stripe:SecretKey"]))
-    startupLogger.LogWarning("Stripe:SecretKey is not configured — payment endpoints will fail");
+if (string.IsNullOrWhiteSpace(builder.Configuration["Api:BaseUrl"]))
+    startupLogger.LogWarning("Api:BaseUrl is not configured — API calls will hit https://localhost:7001 by default");
 
-if (string.IsNullOrWhiteSpace(builder.Configuration["Licensing:HmacSigningKey"]))
-    startupLogger.LogWarning("Licensing:HmacSigningKey is not configured — HMAC signatures will be empty");
-
-if (string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString("DefaultConnection")))
-    startupLogger.LogCritical("ConnectionStrings:DefaultConnection is not configured — the application cannot start");
-
-if (string.IsNullOrWhiteSpace(builder.Configuration["ApplicationInsights:ConnectionString"]))
-    startupLogger.LogWarning("ApplicationInsights:ConnectionString is not set — telemetry will not be sent to Azure Monitor");
-
-// ── Database startup ──────────────────────────────────────────────────────────
-using (var scope = app.Services.CreateScope())
-{
-    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    // Relational providers (SQL Server) run migrations; InMemory (used by integration
-    // tests via WebApplicationFactory) uses EnsureCreated instead.
-    try
-    {
-        if (db.Database.IsRelational())
-        {
-            await db.Database.MigrateAsync();
-            startupLogger.LogInformation("Database migrations applied successfully");
-        }
-        else
-        {
-            await db.Database.EnsureCreatedAsync();
-        }
-    }
-    catch (Exception ex)
-    {
-        startupLogger.LogCritical(ex, "Database migration failed — the application cannot start");
-        throw;
-    }
-
-    // Seed roles and promote known admin accounts on every startup.
-    await SeedData.SeedAsync(scope.ServiceProvider);
-    startupLogger.LogInformation("Seed data applied successfully");
-}
-
-// ── Middleware pipeline ────────────────────────────────────────────────────────
-
-// Azure App Service terminates SSL and forwards requests over HTTP internally.
-// UseForwardedHeaders must come first so that subsequent middleware (antiforgery,
-// HTTPS redirect, auth cookies) all see the correct scheme and remote IP.
-// KnownNetworks/KnownProxies are cleared because Azure's internal load balancer
-// IP is not in the default loopback-only list — without this the middleware
-// silently ignores X-Forwarded-Proto and the scheme stays "http", breaking
-// antiforgery. Azure's infrastructure controls these headers, so trusting all
-// sources is safe inside an App Service.
+// ── Middleware pipeline ───────────────────────────────────────────────────────
 var forwardedOptions = new ForwardedHeadersOptions
 {
     ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
@@ -217,26 +101,23 @@ app.UseForwardedHeaders(forwardedOptions);
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error");
+    app.UseStatusCodePagesWithReExecute("/Error");
     app.UseHsts();
 }
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
-app.UseRateLimiter();
 app.UseRouting();
+
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.UseAntiforgery();
 
-// Health probe — used by Azure App Service / load balancer health checks.
 app.MapHealthChecks("/health");
-
-app.MapControllers();
 app.MapRazorComponents<UtilityMenuSite.App>()
     .AddInteractiveServerRenderMode();
 
 app.Run();
 
-// Required for WebApplicationFactory<Program> in integration tests.
 public partial class Program { }

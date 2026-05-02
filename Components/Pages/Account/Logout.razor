@@ -1,12 +1,34 @@
 @page "/account/logout"
-@using Microsoft.AspNetCore.Identity
-@inject SignInManager<Data.Models.ApplicationUser> SignInManager
-@inject NavigationManager Nav
+@inject IUtilityMenuApiClient Api
+@inject IAuthCookieIssuer AuthIssuer
+@inject IJwtTokenStorage Tokens
+@inject ILogger<Logout> Logger
 
 @code {
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
     protected override async Task OnInitializedAsync()
     {
-        await SignInManager.SignOutAsync();
-        Nav.NavigateTo("/", forceLoad: true);
+        // Best-effort API logout (revokes refresh token server-side). Failures
+        // here must NOT block the local sign-out — the cookie is the
+        // authoritative client-side identity.
+        var refreshToken = Tokens.GetRefreshToken();
+        if (!string.IsNullOrEmpty(refreshToken))
+        {
+            try
+            {
+                await Api.LogoutAsync(new LogoutRequest(refreshToken));
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "API logout call failed; continuing with local cookie sign-out");
+            }
+        }
+
+        if (HttpContext is not null)
+            await AuthIssuer.ClearAsync(HttpContext);
+
+        HttpContext?.Response.Redirect("/");
     }
 }

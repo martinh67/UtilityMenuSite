@@ -8,7 +8,7 @@
 
 ## Download
 
-1. Go to the [Downloads](/downloads) section of this site.
+1. Go to the [Download](/download) section of this site.
 2. Click **Download UtilityMenu** to get the latest installer.
 3. Run `UtilityMenu-Setup-x.y.z.exe` as a normal user (no administrator rights required).
 

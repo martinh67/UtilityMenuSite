@@ -2,7 +2,7 @@
 @rendermode InteractiveServer
 @layout AdminLayout
 @attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
-@inject IBlogService BlogService
+@inject IUtilityMenuApiClient Api
 @inject NavigationManager Nav
 
 <PageTitle>Blog Admin — UtilityMenu</PageTitle>
@@ -41,7 +41,7 @@ else
                 {
                     <tr>
                         <td><strong>@post.Title</strong></td>
-                        <td><span class="badge bg-light text-dark">@post.Category.Name</span></td>
+                        <td><span class="badge bg-light text-dark">@(post.CategoryName ?? "—")</span></td>
                         <td>
                             <span class="badge @(post.IsPublished ? "bg-success" : "bg-secondary")">
                                 @(post.IsPublished ? "Published" : "Draft")
@@ -50,10 +50,6 @@ else
                         <td class="small text-muted">@post.PublishedAt?.ToString("MMM d, yyyy")</td>
                         <td>
                             <a href="/admin/blog/@post.PostId/edit" class="btn btn-sm btn-outline-primary me-1">Edit</a>
-                            @if (!post.IsPublished)
-                            {
-                                <button class="btn btn-sm btn-outline-success me-1" @onclick="() => PublishPost(post.PostId)">Publish</button>
-                            }
                             <button class="btn btn-sm btn-outline-danger" @onclick="() => DeletePost(post.PostId)">Delete</button>
                         </td>
                     </tr>
@@ -64,7 +60,7 @@ else
 }
 
 @code {
-    private List<Data.Models.BlogPost> _posts = new();
+    private List<BlogPostDto> _posts = new();
     private string? _message;
     private string _messageType = "info";
     private bool _loading = true;
@@ -77,24 +73,26 @@ else
 
     private async Task LoadPostsAsync()
     {
-        _posts = await BlogService.GetAllForAdminAsync();
+        var result = await Api.GetAllPostsAsync();
+        if (result.IsSuccess && result.Value is not null) _posts = result.Value.Posts.ToList();
+        else _message = "Failed to load posts.";
         _loading = false;
         StateHasChanged();
     }
 
-    private async Task PublishPost(Guid postId)
-    {
-        await BlogService.PublishPostAsync(postId);
-        await LoadPostsAsync();
-        _message = "Post published.";
-        _messageType = "success";
-    }
-
     private async Task DeletePost(Guid postId)
     {
-        await BlogService.DeletePostAsync(postId);
-        await LoadPostsAsync();
-        _message = "Post deleted.";
-        _messageType = "warning";
+        var result = await Api.DeletePostAsync(postId);
+        if (result.IsSuccess)
+        {
+            await LoadPostsAsync();
+            _message = "Post deleted.";
+            _messageType = "warning";
+        }
+        else
+        {
+            _message = "Failed to delete post.";
+            _messageType = "danger";
+        }
     }
 }

@@ -1,9 +1,5 @@
 @page "/"
-@using UtilityMenuSite.Core.Interfaces
-@using UtilityMenuSite.Core.Models
-@using UtilityMenuSite.Data.Models
-@inject IBlogService BlogService
-@inject IVersionManifestService VersionService
+@inject IUtilityMenuApiClient Api
 
 <PageTitle>UtilityMenu — Excel Add-in for Power Users</PageTitle>
 <HeadContent>
@@ -161,7 +157,7 @@
                                 <img src="@post.CoverImageUrl" class="card-img-top" alt="@post.Title" style="height:180px; object-fit:cover;" />
                             }
                             <div class="card-body">
-                                <span class="badge bg-primary-subtle text-primary mb-2">@post.Category.Name</span>
+                                <span class="badge bg-primary-subtle text-primary mb-2">@(post.CategoryName ?? "Blog")</span>
                                 <h5 class="card-title fw-semibold">@post.Title</h5>
                                 <p class="card-text text-muted small">@post.Summary</p>
                             </div>
@@ -192,8 +188,8 @@
 </section>
 
 @code {
-    private List<BlogPost> _latestPosts = new();
-    private VersionManifest? _version;
+    private List<BlogPostDto> _latestPosts = new();
+    private VersionManifestDto? _version;
 
     private readonly List<CustomExample> _customExamples =
     [
@@ -218,8 +214,13 @@
 
     protected override async Task OnInitializedAsync()
     {
-        _latestPosts = await BlogService.GetLatestPostsAsync(3);
-        _version = await VersionService.GetLatestAsync();
+        var postsTask = Api.GetPublishedPostsAsync(0, 3);
+        var versionTask = Api.GetVersionManifestAsync();
+        await Task.WhenAll(postsTask, versionTask);
+
+        if (postsTask.Result.IsSuccess && postsTask.Result.Value is not null)
+            _latestPosts = postsTask.Result.Value.Posts.ToList();
+        if (versionTask.Result.IsSuccess) _version = versionTask.Result.Value;
     }
 
     private record FeatureInfo(string Title, string Description, string Icon, string Tier);
