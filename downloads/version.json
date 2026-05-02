@@ -1,0 +1,15 @@
+{
+  "version": "1.3.0",
+  "release_date": "2026-05-02",
+  "download_url": "https://github.com/martinh67/UtilityMenu/releases/download/v1.3.0/UtilityMenuInstaller.exe",
+  "release_notes": "Core completion + Pro buildout: 8 Core modules, 9 Pro umbrellas (17 features), admin self-provision endpoint",
+  "minimum_version": "1.0.0",
+  "changelog": [
+    "Core: added UnhideColumns, DeleteHidden, SelectUsedRange, InsertTimestamp, CopyVisibleOnly",
+    "Pro umbrellas (existing) flesh-out: AdvancedData (TrimWhitespace, ExtractNumbers, ExtractText), BulkOperations (DeleteEmptyRows, DedupeSelection, FillDownBlanks), DataExport (Sheet to CSV, Selection to CSV, Copy as Markdown), SqlBuilder (Build INSERT, IN list, UPDATE)",
+    "Pro umbrellas (new): FormatPresets (Report Style), SheetProtect (Protect All / Unprotect All), SmartCompare (Highlight Duplicates), SplitColumn (Split on Comma), MergeSheets (Consolidate Sheets)",
+    "Admin: POST /api/v1/admin/self-provision endpoint for founder test accounts",
+    "Site: WiX timeout fix on fresh CI runners; tag-driven release workflow",
+    "Site: payment-licensing audit work (PRs #41/#42)"
+  ]
+}
