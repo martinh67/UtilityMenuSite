@@ -1,10 +1,17 @@
 {
-  "version": "1.3.2",
+  "version": "1.4.0",
   "release_date": "2026-05-03",
-  "download_url": "https://github.com/martinh67/UtilityMenu/releases/download/v1.3.2/UtilityMenu-Setup-1.3.2.exe",
-  "release_notes": "Verifies the fixed auto-tag pipeline (PR #60 — explicit release.yml dispatch)",
+  "download_url": "https://github.com/martinh67/UtilityMenu/releases/download/v1.4.0/UtilityMenu-Setup-1.4.0.exe",
+  "release_notes": "Pro umbrella v2: rounds out FormatPresets, SheetProtect, SmartCompare, SplitColumn, MergeSheets with one extra headline feature each.",
   "minimum_version": "1.0.0",
   "changelog": [
-    "Verifies the fixed auto-tag.yml: version.json bump on main creates v1.3.2 tag AND explicitly dispatches release.yml end-to-end (PR #60 closed the GITHUB_TOKEN gap)"
+    "FormatPresets: add Ledger Style — alternating-row light-grey backgrounds (pairs with existing Report Style)",
+    "SheetProtect: add Lock Formulas Only — protects sheet but only formula cells are read-only; data cells stay editable",
+    "SmartCompare: add Compare Two Sheets — diff active sheet vs another sheet by name; differing cells painted red",
+    "SplitColumn: add Split on Delimiter — custom delimiter via prompt (use \\t for tab); CSV-quote-aware",
+    "MergeSheets: add Split Consolidated — inverse of Consolidate Sheets; splits a Source-keyed sheet back into per-source sheets",
+    "New IInputDialogService abstraction + WindowsInputDialogService backing impl",
+    "Adapter additions: ApplyLedgerStyle, LockFormulasOnly, SetBackgroundColor",
+    "13 new execute-path tests + helper tests for the v2 features"
   ]
 }
