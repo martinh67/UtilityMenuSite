@@ -1,10 +1,10 @@
 {
-  "version": "1.3.1",
+  "version": "1.3.2",
   "release_date": "2026-05-03",
-  "download_url": "https://github.com/martinh67/UtilityMenu/releases/download/v1.3.1/UtilityMenu-Setup-1.3.1.exe",
-  "release_notes": "Live test of the auto-tag release pipeline (no functional changes vs 1.3.0)",
+  "download_url": "https://github.com/martinh67/UtilityMenu/releases/download/v1.3.2/UtilityMenu-Setup-1.3.2.exe",
+  "release_notes": "Verifies the fixed auto-tag pipeline (PR #60 — explicit release.yml dispatch)",
   "minimum_version": "1.0.0",
   "changelog": [
-    "Validates auto-tag.yml workflow: version.json bump on main automatically creates v1.3.1 tag and triggers release.yml end-to-end"
+    "Verifies the fixed auto-tag.yml: version.json bump on main creates v1.3.2 tag AND explicitly dispatches release.yml end-to-end (PR #60 closed the GITHUB_TOKEN gap)"
   ]
 }
