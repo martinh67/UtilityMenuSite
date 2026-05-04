@@ -65,6 +65,15 @@ public interface IUtilityMenuApiClient
     // ── Version manifest ─────────────────────────────────────────────────────
     Task<ApiResult<VersionManifestDto>> GetVersionManifestAsync(CancellationToken ct = default);
 
+    // ── Installer download (raw stream proxy) ───────────────────────────────
+    /// <summary>
+    /// Authenticated installer download. Returns the raw HttpResponseMessage so
+    /// the Site can stream the body straight to the browser without buffering.
+    /// Caller owns the response and must dispose it (use `using` or
+    /// CopyToAsync inside a `using` block).
+    /// </summary>
+    Task<HttpResponseMessage> GetInstallerAsync(CancellationToken ct = default);
+
     // ── Usage events (Site server-to-server, x-api-key) ──────────────────────
     Task<ApiResult> RecordUsageEventAsync(RecordUsageEventRequest request, CancellationToken ct = default);
 }
