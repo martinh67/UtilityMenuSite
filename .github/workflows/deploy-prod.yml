@@ -40,21 +40,120 @@ jobs:
       artifact-name: app-prod
       retention-days: 14
 
-  deploy:
+  # Step 1: deploy to the staging slot. Slot inherits production app
+  # settings, so a smoke against the staging hostname is a faithful
+  # rehearsal of what production will see post-swap.
+  deploy-staging:
     needs: build
     uses: ./.github/workflows/reusable-deploy-azure.yml
     with:
       environment: Production
       app-name: utilitymenu-prod-site
       artifact-name: app-prod
+      slot: staging
+
+  # Step 2: smoke staging hostname before swap.
+  smoke-staging:
+    needs: deploy-staging
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe staging /health
+        run: |
+          set -u
+          URL="https://utilitymenu-prod-site-staging.azurewebsites.net/health"
+          for attempt in 1 2 3 4; do
+            code=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 45 "$URL" || echo "000")
+            if [ "$code" = "200" ]; then
+              echo "[OK] staging /health returned $code (attempt $attempt)"
+              exit 0
+            fi
+            if [ "$attempt" -lt 4 ]; then
+              echo "[INFO] staging /health returned $code on attempt $attempt; retrying in 10s"
+              sleep 10
+            fi
+          done
+          echo "[FAIL] staging /health did not return 200; aborting swap"
+          exit 1
+
+      - name: Probe staging marketing root
+        run: |
+          set -u
+          URL="https://utilitymenu-prod-site-staging.azurewebsites.net/"
+          for attempt in 1 2 3 4; do
+            code=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 45 "$URL" || echo "000")
+            if [ "$code" = "200" ]; then
+              echo "[OK] staging / returned $code (attempt $attempt)"
+              exit 0
+            fi
+            if [ "$attempt" -lt 4 ]; then
+              echo "[INFO] staging / returned $code on attempt $attempt; retrying in 10s"
+              sleep 10
+            fi
+          done
+          echo "[FAIL] staging / did not return 200; aborting swap"
+          exit 1
+
+  # Step 3: swap staging into production. Old build remains on staging
+  # slot post-swap as the rollback safety net.
+  swap-slots:
+    needs: smoke-staging
+    runs-on: ubuntu-latest
+    environment: Production
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Swap staging into production
+        run: |
+          az webapp deployment slot swap \
+            --resource-group utilitymenu-prod-rg \
+            --name utilitymenu-prod-site \
+            --slot staging \
+            --target-slot production
+          echo "[OK] Slot swap complete; staging → production"
+
+      - name: Azure logout
+        if: always()
+        run: az logout
+
+  # Step 4: smoke the production hostname after swap.
+  smoke-production:
+    needs: swap-slots
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe production /health
+        run: |
+          set -u
+          URL="https://utilitymenu-prod-site.azurewebsites.net/health"
+          for attempt in 1 2 3 4; do
+            code=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 45 "$URL" || echo "000")
+            if [ "$code" = "200" ]; then
+              echo "[OK] production /health returned $code (attempt $attempt)"
+              exit 0
+            fi
+            if [ "$attempt" -lt 4 ]; then
+              echo "[INFO] production /health returned $code on attempt $attempt; retrying in 10s"
+              sleep 10
+            fi
+          done
+          echo "[FAIL] production /health did not return 200 after swap — manual rollback required"
+          echo "[FAIL] az webapp deployment slot swap --resource-group utilitymenu-prod-rg --name utilitymenu-prod-site --slot production --target-slot staging"
+          exit 1
 
   notify:
-    needs: deploy
+    needs: smoke-production
     runs-on: ubuntu-latest
     if: always()
     steps:
       - name: Deployment summary
         run: |
-          echo "Production deployment ${{ needs.deploy.result }} at $(date -u)"
+          echo "Production deployment ${{ needs.smoke-production.result }} at $(date -u)"
           echo "Ref: ${{ github.ref_name }}"
           echo "Triggered by: ${{ github.actor }}"
