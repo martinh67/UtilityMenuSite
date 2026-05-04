@@ -1,0 +1,77 @@
+name: E2E - Playwright happy path
+
+# Top-of-funnel UI check that fires:
+#   - On schedule (weekday mornings) — catches platform drift between deploys.
+#   - Manually via workflow_dispatch — operator can target Dev / UAT / Prod
+#     by overriding base_url.
+#   - After deploy-uat finishes — proves the new build hasn't broken
+#     /pricing, /account/register, and /health.
+#
+# The tests don't drive Stripe Checkout or the email confirmation loop —
+# those need live Stripe + email infrastructure that's not safe to exercise
+# from CI. Coverage focuses on the routes most likely to break on deploy.
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'Override target Site URL (defaults to UAT).'
+        required: false
+        type: string
+        default: 'https://utilitymenu-uat-site.azurewebsites.net'
+  schedule:
+    # 07:30 UTC weekdays. Picks up overnight deploy drift before working hours.
+    - cron: '30 7 * * 1-5'
+  workflow_run:
+    workflows: ['Deploy to UAT']
+    types: [completed]
+
+permissions:
+  contents: read
+
+concurrency:
+  # Serialise per target so two scheduled runs don't race on the registration
+  # endpoint. Different base URLs (e.g. dispatch override) get their own group.
+  group: e2e-${{ inputs.base_url || 'default' }}
+  cancel-in-progress: false
+
+jobs:
+  e2e:
+    name: Playwright E2E
+    runs-on: ubuntu-latest
+    # Skip schedule-triggered runs on forks that don't have the Site running.
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore + build E2E project
+        working-directory: UtilityMenuSite.E2E
+        run: |
+          dotnet restore
+          dotnet build --configuration Release --no-restore
+
+      - name: Install Playwright browsers
+        # The post-build script installs Chromium with all OS deps.
+        working-directory: UtilityMenuSite.E2E
+        run: pwsh bin/Release/net10.0/playwright.ps1 install --with-deps chromium
+
+      - name: Run Playwright tests
+        working-directory: UtilityMenuSite.E2E
+        env:
+          E2E_BASE_URL: ${{ inputs.base_url || 'https://utilitymenu-uat-site.azurewebsites.net' }}
+        run: |
+          dotnet test --configuration Release --no-build --logger "trx;LogFileName=playwright-results.trx" --results-directory ./TestResults
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: UtilityMenuSite.E2E/TestResults/
+          retention-days: 14

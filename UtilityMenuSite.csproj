@@ -8,14 +8,18 @@
     <UserSecretsId>utilitymenusite-dev-secrets</UserSecretsId>
   </PropertyGroup>
 
-  <!-- Exclude the test project from the Web SDK's recursive globs. Without this
-       the test project's auto-generated AssemblyInfo.cs collides with the main
-       project's, breaking the build. -->
+  <!-- Exclude sibling test projects from the Web SDK's recursive globs. Without
+       this their auto-generated AssemblyInfo.cs collides with the main project's,
+       breaking the build. -->
   <ItemGroup>
     <Compile Remove="UtilityMenuSite.Tests/**" />
     <Content Remove="UtilityMenuSite.Tests/**" />
     <EmbeddedResource Remove="UtilityMenuSite.Tests/**" />
     <None Remove="UtilityMenuSite.Tests/**" />
+    <Compile Remove="UtilityMenuSite.E2E/**" />
+    <Content Remove="UtilityMenuSite.E2E/**" />
+    <EmbeddedResource Remove="UtilityMenuSite.E2E/**" />
+    <None Remove="UtilityMenuSite.E2E/**" />
   </ItemGroup>
 
   <ItemGroup>
