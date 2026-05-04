@@ -1,0 +1,70 @@
+@page "/account/confirm-email"
+@rendermode InteractiveServer
+@layout AuthLayout
+@inject IUtilityMenuApiClient Api
+@inject NavigationManager Nav
+@inject ILogger<ConfirmEmail> Logger
+
+<PageTitle>Confirm Email — UtilityMenu</PageTitle>
+
+<h4 class="fw-bold mb-1">Confirm your email</h4>
+<p class="text-muted small mb-3">Verifying your account…</p>
+
+@if (_state == State.Verifying)
+{
+    <div class="d-flex align-items-center text-muted small">
+        <span class="spinner-border spinner-border-sm me-2"></span>
+        Confirming your email — please wait.
+    </div>
+}
+else if (_state == State.Succeeded)
+{
+    <AlertBanner Message="Your email is confirmed. You can now sign in." Type="success" />
+    <a href="/account/login" class="btn btn-primary w-100 mt-3">Continue to sign in</a>
+}
+else
+{
+    <AlertBanner Message="@_errorMessage" Type="danger" />
+    <p class="small text-muted mt-3">
+        If your link has expired, you can <a href="/account/login">sign in</a> and request a new confirmation
+        email from your account page.
+    </p>
+}
+
+@code {
+    [SupplyParameterFromQuery] public string? Email { get; set; }
+    [SupplyParameterFromQuery] public string? Token { get; set; }
+
+    private enum State { Verifying, Succeeded, Failed }
+    private State _state = State.Verifying;
+    private string _errorMessage = "Invalid confirmation link.";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (string.IsNullOrWhiteSpace(Email) || string.IsNullOrWhiteSpace(Token))
+        {
+            _state = State.Failed;
+            _errorMessage = "Invalid confirmation link — email or token is missing.";
+            return;
+        }
+
+        var result = await Api.ConfirmEmailAsync(new ConfirmEmailRequest(Email, Token));
+        if (result.IsSuccess)
+        {
+            _state = State.Succeeded;
+            Logger.LogInformation("Email confirmed for {Email}", Email);
+        }
+        else
+        {
+            _state = State.Failed;
+            _errorMessage = result.ErrorCode switch
+            {
+                "invalid_token"  => "This confirmation link is invalid or has already been used.",
+                "expired_token"  => "This confirmation link has expired. Please request a new one.",
+                "network_error"  => "Could not reach the server. Please try again.",
+                _                => result.ErrorMessage ?? "Email confirmation failed. Please try again."
+            };
+            Logger.LogWarning("Email confirmation failed for {Email}: {Code}", Email, result.ErrorCode);
+        }
+    }
+}

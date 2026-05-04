@@ -165,9 +165,10 @@
         _downloadStarted = true;
         _downloadError = false;
         StateHasChanged();
-        // The installer download proxy stays on the Site (UI-adjacent streaming).
-        // This endpoint will be re-implemented as a Site-side controller that
-        // streams from GitHub Releases and posts a UsageEvent to the API.
+        // /api/download/installer is the Site-side proxy (Controllers/DownloadController.cs).
+        // It authenticates the user via cookie, then streams from the API's
+        // /api/v1/download/installer (which records the UsageEvent and fetches
+        // from GitHub Releases). The user stays on the Site origin throughout.
         var success = await JS.InvokeAsync<bool>("triggerFileDownload", "/api/download/installer");
         if (!success)
         {
