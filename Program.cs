@@ -1,3 +1,4 @@
+using Azure.Identity;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -29,16 +30,33 @@ builder.Services.AddCascadingAuthenticationState();
 
 // ── Data Protection ──────────────────────────────────────────────────────────
 // Keys must survive app restarts so the auth cookie (which carries the JWT
-// access + refresh tokens) remains decryptable after a redeploy. UAT/Prod
-// persist to Azure Files via the App Service %HOME% path; Dev falls back to
-// the content-root-relative path. Once Phase 2's blob storage backing is in
-// place, this can switch to PersistKeysToAzureBlobStorage.
-var dpKeysPath = Path.Combine(
-    Environment.GetEnvironmentVariable("HOME") ?? builder.Environment.ContentRootPath,
-    "ASP.NET", "DataProtection-Keys");
-builder.Services.AddDataProtection()
-    .PersistKeysToFileSystem(new System.IO.DirectoryInfo(dpKeysPath))
-    .SetApplicationName("UtilityMenuSite");
+// access + refresh tokens) remains decryptable after a redeploy. Two-tier
+// strategy mirroring UtilityMenuAPI:
+//  - UAT/Prod: persist to Azure Blob (DataProtection:BlobUri from KV via the
+//    Terraform-managed shared-data-protection-blob-uri secret). Without
+//    persistent keys, every redeploy invalidates auth cookies and silently
+//    logs out every user. Fail fast in non-Dev if the URI is missing — this
+//    is a deploy-blocking config error, not a soft warning.
+//  - Development: persist to %HOME%/ASP.NET/DataProtection-Keys filesystem.
+{
+    var dpBuilder = builder.Services.AddDataProtection().SetApplicationName("UtilityMenuSite");
+    var blobUri = builder.Configuration["DataProtection:BlobUri"];
+    if (!builder.Environment.IsDevelopment())
+    {
+        if (string.IsNullOrWhiteSpace(blobUri))
+            throw new InvalidOperationException(
+                "DataProtection:BlobUri is required outside of Development. " +
+                "Set via DataProtection__BlobUri (Terraform-managed) — without it, redeploys silently sign out every user.");
+        dpBuilder.PersistKeysToAzureBlobStorage(new Uri(blobUri), new DefaultAzureCredential());
+    }
+    else
+    {
+        var fallback = Path.Combine(
+            Environment.GetEnvironmentVariable("HOME") ?? builder.Environment.ContentRootPath,
+            "ASP.NET", "DataProtection-Keys");
+        dpBuilder.PersistKeysToFileSystem(new DirectoryInfo(fallback));
+    }
+}
 
 // ── Cookie auth (replaces Identity-coupled cookie scheme) ────────────────────
 // The Site is now a pure BFF: the auth cookie holds the user's claims AND the
