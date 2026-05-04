@@ -1,17 +1,15 @@
 {
-  "version": "1.4.0",
-  "release_date": "2026-05-03",
-  "download_url": "https://github.com/martinh67/UtilityMenu/releases/download/v1.4.0/UtilityMenu-Setup-1.4.0.exe",
-  "release_notes": "Pro umbrella v2: rounds out FormatPresets, SheetProtect, SmartCompare, SplitColumn, MergeSheets with one extra headline feature each.",
+  "version": "1.5.0",
+  "release_date": "2026-05-04",
+  "download_url": "https://github.com/martinh67/UtilityMenu/releases/download/v1.5.0/UtilityMenu-Setup-1.5.0.exe",
+  "release_notes": "Thin-client refactor — removes Stripe SDK and embedded secret key from the desktop binary; HMAC signing key now injected at build time.",
   "minimum_version": "1.0.0",
   "changelog": [
-    "FormatPresets: add Ledger Style — alternating-row light-grey backgrounds (pairs with existing Report Style)",
-    "SheetProtect: add Lock Formulas Only — protects sheet but only formula cells are read-only; data cells stay editable",
-    "SmartCompare: add Compare Two Sheets — diff active sheet vs another sheet by name; differing cells painted red",
-    "SplitColumn: add Split on Delimiter — custom delimiter via prompt (use \\t for tab); CSV-quote-aware",
-    "MergeSheets: add Split Consolidated — inverse of Consolidate Sheets; splits a Source-keyed sheet back into per-source sheets",
-    "New IInputDialogService abstraction + WindowsInputDialogService backing impl",
-    "Adapter additions: ApplyLedgerStyle, LockFormulasOnly, SetBackgroundColor",
-    "13 new execute-path tests + helper tests for the v2 features"
+    "Remove Stripe.net SDK from XLL — Upgrade Premium now opens the Site /pricing page in the browser; the Site owns Stripe Checkout end-to-end",
+    "Remove DPAPI-encrypted Stripe secret key infrastructure (PCI / Stripe-ToS exposure eliminated)",
+    "Remove dead EF Core / DbContext / repository layer (UtilityMenuAPI is the sole DB owner)",
+    "Remove obsolete UtilityMenu.Api project (superseded by UtilityMenuAPI repo)",
+    "Inject HMAC licensing signing key at build time via AssemblyMetadataAttribute (CI secret LICENSING_HMAC_SIGNING_KEY)",
+    "Approximate 5MB binary size reduction from removed SDKs"
   ]
 }
