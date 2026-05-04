@@ -165,6 +165,11 @@ public class UtilityMenuApiClient : IUtilityMenuApiClient
     public Task<ApiResult<VersionManifestDto>> GetVersionManifestAsync(CancellationToken ct = default)
         => GetAsync<VersionManifestDto>("/api/v1/version/manifest", ct);
 
+    // ── Installer download (raw stream) ─────────────────────────────────────
+
+    public Task<HttpResponseMessage> GetInstallerAsync(CancellationToken ct = default)
+        => _http.GetAsync("/api/v1/download/installer", HttpCompletionOption.ResponseHeadersRead, ct);
+
     // ── Usage events ─────────────────────────────────────────────────────────
 
     public Task<ApiResult> RecordUsageEventAsync(RecordUsageEventRequest request, CancellationToken ct = default)

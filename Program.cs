@@ -20,6 +20,11 @@ if (!string.IsNullOrWhiteSpace(aiConnectionString))
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
+// MVC controllers — currently used only by DownloadController to proxy the
+// authenticated installer stream from the API. Razor Components handles the
+// rest of the Site.
+builder.Services.AddControllers();
+
 builder.Services.AddCascadingAuthenticationState();
 
 // ── Data Protection ──────────────────────────────────────────────────────────
@@ -133,6 +138,7 @@ app.UseAuthorization();
 app.UseAntiforgery();
 
 app.MapHealthChecks("/health");
+app.MapControllers();
 app.MapRazorComponents<UtilityMenuSite.App>()
     .AddInteractiveServerRenderMode();
 
