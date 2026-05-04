@@ -69,8 +69,20 @@ builder.Services.AddTransient<ApiAuthHandler>();
 builder.Services.AddHttpClient<IUtilityMenuApiClient, UtilityMenuApiClient>((sp, client) =>
 {
     var settings = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<ApiSettings>>().Value;
-    var baseUrl = string.IsNullOrWhiteSpace(settings.BaseUrl) ? "https://localhost:7001" : settings.BaseUrl;
-    client.BaseAddress = new Uri(baseUrl);
+    var env = sp.GetRequiredService<IHostEnvironment>();
+    if (string.IsNullOrWhiteSpace(settings.BaseUrl))
+    {
+        if (!env.IsDevelopment())
+            throw new InvalidOperationException(
+                "Api:BaseUrl is not configured. In UAT/Prod this must be set via the " +
+                "Api__BaseUrl env var (Terraform-managed) or appsettings.{Environment}.json.");
+        // Dev fallback — local API on the standard ASP.NET Core HTTPS port.
+        client.BaseAddress = new Uri("https://localhost:7001");
+    }
+    else
+    {
+        client.BaseAddress = new Uri(settings.BaseUrl);
+    }
     client.Timeout = TimeSpan.FromSeconds(30);
 })
 .AddHttpMessageHandler<ApiAuthHandler>();
@@ -87,7 +99,13 @@ var startupLogger = app.Services.GetRequiredService<ILogger<Program>>();
 startupLogger.LogInformation("UtilityMenuSite starting — Environment: {Environment}", app.Environment.EnvironmentName);
 
 if (string.IsNullOrWhiteSpace(builder.Configuration["Api:BaseUrl"]))
+{
+    if (!app.Environment.IsDevelopment())
+        throw new InvalidOperationException(
+            "Api:BaseUrl is required outside of Development. " +
+            "Set via Api__BaseUrl env var (Terraform-managed) or appsettings.{Environment}.json.");
     startupLogger.LogWarning("Api:BaseUrl is not configured — API calls will hit https://localhost:7001 by default");
+}
 
 // ── Middleware pipeline ───────────────────────────────────────────────────────
 var forwardedOptions = new ForwardedHeadersOptions
