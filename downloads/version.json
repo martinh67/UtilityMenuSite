@@ -1,15 +1,13 @@
 {
-  "version": "1.5.0",
+  "version": "1.6.0",
   "release_date": "2026-05-04",
-  "download_url": "https://github.com/martinh67/UtilityMenu/releases/download/v1.5.0/UtilityMenu-Setup-1.5.0.exe",
-  "release_notes": "Thin-client refactor — removes Stripe SDK and embedded secret key from the desktop binary; HMAC signing key now injected at build time.",
+  "download_url": "https://github.com/martinh67/UtilityMenu/releases/download/v1.6.0/UtilityMenu-Setup-1.6.0.exe",
+  "release_notes": "Activate Licence ribbon button — paste a licence key emailed by the Site and unlock Pro features without leaving Excel.",
   "minimum_version": "1.0.0",
   "changelog": [
-    "Remove Stripe.net SDK from XLL — Upgrade Premium now opens the Site /pricing page in the browser; the Site owns Stripe Checkout end-to-end",
-    "Remove DPAPI-encrypted Stripe secret key infrastructure (PCI / Stripe-ToS exposure eliminated)",
-    "Remove dead EF Core / DbContext / repository layer (UtilityMenuAPI is the sole DB owner)",
-    "Remove obsolete UtilityMenu.Api project (superseded by UtilityMenuAPI repo)",
-    "Inject HMAC licensing signing key at build time via AssemblyMetadataAttribute (CI secret LICENSING_HMAC_SIGNING_KEY)",
-    "Approximate 5MB binary size reduction from removed SDKs"
+    "New 'Activate Licence' ribbon button (Pro group) — paste a licence key purchased on the Site and activate Pro features without leaving Excel",
+    "POST /api/v1/licence/activate is anonymous and issues a Bearer token; XLL stores the token DPAPI-encrypted in api.token.dat",
+    "Stable per-machine SHA-256 fingerprint (MAC + machine name + user) sent during activation so seat tracking works across reboots",
+    "Inline error rendering in the Activate dialog: NETWORK_ERROR, LICENCE_INVALID, SEAT_LIMIT_EXCEEDED retry without closing the dialog"
   ]
 }
